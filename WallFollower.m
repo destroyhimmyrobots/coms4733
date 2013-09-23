@@ -85,7 +85,7 @@ function finalRad= WallFollower(serPort)
         angTurned= angTurned+current_turn;
         
         if found_wall
-            current_angle = current_angle + (bump_angle + current_turn);
+            current_angle = current_angle + (current_turn);
             x_traveled = x_traveled + (current_dist+bump_distance)*cos(current_angle);
             y_traveled = y_traveled + (current_dist+bump_distance)*sin(current_angle);
         end
@@ -109,6 +109,7 @@ function finalRad= WallFollower(serPort)
         disp (x_traveled);
         disp y
         disp (y_traveled);
+        disp angle
         disp (current_angle);
     end
     
