@@ -20,8 +20,8 @@ function finalRad= WallFollower(serPort)
 % CreateMatlabSim@gmail.com
 
     % Set constants for this program
-    maxDuration= 1200;  % Max time to allow the program to run (s)
-    maxDistSansBump= 10;% Max distance to travel without obstacles (m)
+    maxDuration= 12000;  % Max time to allow the program to run (s)
+    maxDistSansBump= 100;% Max distance to travel without obstacles (m)
     maxFwdVel= 0.5;     % Max allowable forward velocity with no angular 
                         % velocity at the time (m/s)
     maxVelIncr= 0.005;  % Max incrementation of forward velocity (m/s)
@@ -65,8 +65,11 @@ function finalRad= WallFollower(serPort)
             
             % Start moving again at previous velocities
             %SetFwdVelAngVelCreate(serPort,0,0.5)
+        elseif found_wall
+            SetFwdVelAngVelCreate(serPort,maxFwdVel/4,-0.5)
         else
-            SetFwdVelAngVelCreate(serPort,maxFwdVel/3,-0.5)
+            SetFwdVelAngVelCreate(serPort,v,-0.5)
+            v = v + maxVelIncr
         end
        
         
@@ -75,6 +78,7 @@ function finalRad= WallFollower(serPort)
         angTurned= angTurned+AngleSensorRoomba(serPort);
         
         % Increase turning radius if it is time
+ 
         if angTurned >= maxOdomAng
             % Either increase forward velocity by the increment or by half
             % the difference to the max velocity, whichever is lower
@@ -134,7 +138,7 @@ function bumped= bumpCheckReact(serPort)
         elseif BumpLeft
             SetFwdVelAngVelCreate(serPort,v,w) % Turn clockwise
             ang= pi/16;
-        elseif BumpFront
+        elseif BumpFront && ~BumpRight
             SetFwdVelAngVelCreate(serPort,v,w)  % Turn counter-clockwise
             ang= pi/8;                          % Turn further
         end
