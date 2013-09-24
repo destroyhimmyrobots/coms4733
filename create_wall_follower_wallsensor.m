@@ -32,25 +32,23 @@ function finalRad = create_wall_follower_wallsensor(serPort)
     % Set constants for this program
     maxDuration     = 1200;   % Max time to allow the program to rcdasdun (s)
     maxDistSansBump = 10;     % Max distance to travel without obstacles (m)
+    distSansBump = 0;         % Distance traveled without hitting obstacles (m)
+    angTurned    = 0;         % Angle turned since turning radius increase (rad)    
     maxFwdVel       = 0.3;    % Max allowable forward velocity with no angular 
                               % velocity at the time (m/s)
-    maxVelIncr      = 0.005;  % Max incrementation of forward velocity (m/s)
-    maxOdomAng      = pi/4;   % Max angle to move around a circle before 
+    inc_vel         = 0.005;  % Max incrementation of forward velocity (m/s)
+    max_odom_ang    = pi/4;   % Max angle to move around a circle before 
                               % increasing the turning radius (rad)
-    angMaxTurned    = 2*pi;
     
-    % Initialize loop variables
-    tStart       = tic;       % Time limit marker
-    distSansBump = 0;         % Distance traveled without hitting obstacles (m)
-    angTurned    = 0;         % Angle turned since turning radius increase (rad)
 
+    tStart       = tic;       % Time limit marker
     hit_wall     = 0;
     seen_wall    = 0;
     norm_v       = 0.2;
     norm_dist    = 0.1;
     norm_angv    = 0.3;
     backup_dist  = -0.02;
-    v            = norm_v;     % Forward velocity (m/s)
+    v            = norm_v;    % Forward velocity (m/s)
     w            = v2w(v);    % Angular velocity (rad/s)
     turn_v       = norm_v;
     corner_v     = 0.1;
@@ -76,20 +74,18 @@ function finalRad = create_wall_follower_wallsensor(serPort)
         else
             fprintf('No wall yet.\n\n');
             SetFwdVelAngVelCreate(serPort, corner_v, corner_angv);
-            corner_v = min(corner_v + maxVelIncr, maxFwdVel);
+            corner_v = min(corner_v + inc_vel, maxFwdVel);
         end
         
         pause(WAIT_TIME);
     end
     
     v           = norm_v;
-    corner_v = norm_v;
+    corner_v    = norm_v;
     tStart      = tic;
     
     % Enter main loop
-    while (toc(tStart) < maxDuration) ...
-            && (seen_wall || (distSansBump <= maxDistSansBump)) ...
-            && (angTurned < angMaxTurned)
+    while (toc(tStart) < maxDuration)
                 
         [bump_right, bump_left , ~, ~, ~, bump_front] = ...
             BumpsWheelDropsSensorsRoomba(serPort);
@@ -145,7 +141,7 @@ function finalRad = create_wall_follower_wallsensor(serPort)
         
         else % Cornering
             fprintf('Lost the wall. Cornering...\n\n');
-            corner_v = min(corner_v + maxVelIncr, maxFwdVel);
+            corner_v = min(corner_v + inc_vel, maxFwdVel);
             SetFwdVelAngVelCreate(serPort, corner_v , corner_angv);
         end
         
