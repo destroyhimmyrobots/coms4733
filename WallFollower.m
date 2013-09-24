@@ -20,7 +20,7 @@ function finalRad= WallFollower(serPort)
 % CreateMatlabSim@gmail.com
 
     % Set constants for this program
-    maxDuration= 60;  % Max time to allow the program to run (s)
+    maxDuration= 150;  % Max time to allow the program to run (s)
     maxDistSansBump= 100;% Max distance to travel without obstacles (m)
     maxFwdVel= 0.5;     % Max allowable forward velocity with no angular 
                         % velocity at the time (m/s)
@@ -67,11 +67,9 @@ function finalRad= WallFollower(serPort)
             found_wall = 1;
             bump_distance = DistanceSensorRoomba(serPort); % Reset odometry too
             bump_angle = AngleSensorRoomba(serPort);
-            angle_since_bump = angle_since_bump + bump_angle;
-            if abs(angle_since_bump) > 0.1
+            %angle_since_bump = angle_since_bump + bump_angle;
+            if abs(angle_since_bump) > pi/16
                 current_angle = current_angle + angle_since_bump
-                x_traveled = x_traveled + (distance_since_bump+bump_distance)*cos(current_angle);
-                y_traveled = y_traveled + (distance_since_bump+bump_distance)*sin(current_angle);
             end
             angle_since_bump = 0;
             distSansBump = 0;
@@ -96,6 +94,8 @@ function finalRad= WallFollower(serPort)
         if found_wall
             angle_since_bump = angle_since_bump + current_turn;
             distance_since_bump = distance_since_bump + current_dist;
+            x_traveled = x_traveled + (current_dist + bump_distance)*cos(current_angle);
+            y_traveled = y_traveled + (current_dist + bump_distance)*sin(current_angle);
         end
         disp angle_since_bump
         disp (angle_since_bump)

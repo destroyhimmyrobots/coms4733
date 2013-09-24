@@ -20,7 +20,7 @@ function finalRad= WallFollower(serPort)
 % CreateMatlabSim@gmail.com
 
     % Set constants for this program
-    maxDuration= 60;  % Max time to allow the program to run (s)
+    maxDuration= 150;  % Max time to allow the program to run (s)
     maxDistSansBump= 100;% Max distance to travel without obstacles (m)
     maxFwdVel= 0.5;     % Max allowable forward velocity with no angular 
                         % velocity at the time (m/s)
@@ -37,6 +37,7 @@ function finalRad= WallFollower(serPort)
     y_traveled = 0;
     current_angle = 0;
     angle_since_bump = 0;
+    distance_since_bump = 0;
     v= 0;               % Forward velocity (m/s)
     w= v2w(v);          % Angular velocity (rad/s)
     found_wall = 0;
@@ -66,8 +67,11 @@ function finalRad= WallFollower(serPort)
             found_wall = 1;
             bump_distance = DistanceSensorRoomba(serPort); % Reset odometry too
             bump_angle = AngleSensorRoomba(serPort);
-            if abs(current_turn) > pi/15
+            angle_since_bump = angle_since_bump + bump_angle;
+            if abs(angle_since_bump) > pi/16
+                current_angle = current_angle + angle_since_bump
             end
+            angle_since_bump = 0;
             distSansBump = 0;
             angTurned = 0;
             
@@ -88,11 +92,13 @@ function finalRad= WallFollower(serPort)
         angTurned= angTurned+current_turn;
         
         if found_wall
-             angle_since_bump = angle_since_bump + current_turn;
-            distance_since_bump = 
-            x_traveled = x_traveled + (current_dist+bump_distance)*cos(current_angle);
-            y_traveled = y_traveled + (current_dist+bump_distance)*sin(current_angle);
+            angle_since_bump = angle_since_bump + current_turn;
+            distance_since_bump = distance_since_bump + current_dist;
+            x_traveled = x_traveled + (current_dist + bump_distance)*cos(current_angle);
+            y_traveled = y_traveled + (current_dist + bump_distance)*sin(current_angle);
         end
+        disp angle_since_bump
+        disp (angle_since_bump)
             
         % Increase turning radius if it is time
  
