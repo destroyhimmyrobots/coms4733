@@ -36,6 +36,7 @@ function finalRad= WallFollower(serPort)
     x_traveled = 0;
     y_traveled = 0;
     current_angle = 0;
+    angle_since_bump = 0;
     v= 0;               % Forward velocity (m/s)
     w= v2w(v);          % Angular velocity (rad/s)
     found_wall = 0;
@@ -65,6 +66,14 @@ function finalRad= WallFollower(serPort)
             found_wall = 1;
             bump_distance = DistanceSensorRoomba(serPort); % Reset odometry too
             bump_angle = AngleSensorRoomba(serPort);
+            angle_since_bump = angle_since_bump + bump_angle
+            if abs(angle_since_bump) > pi/15
+                current_angle = current_angle + angle_since_bump
+                x_traveled = x_traveled + (current_dist+bump_distance)*cos(current_angle);
+                y_traveled = y_traveled + (current_dist+bump_distance)*sin(current_angle);
+            else
+                angle_since_bump = 0;
+            end
             distSansBump = 0;
             angTurned = 0;
             
@@ -85,12 +94,8 @@ function finalRad= WallFollower(serPort)
         angTurned= angTurned+current_turn;
         
         if found_wall
-            disp(current_turn)
-            if abs(current_turn) > pi/15
-                current_angle = current_angle + current_turn;
-            end
-            x_traveled = x_traveled + (current_dist+bump_distance)*cos(current_angle);
-            y_traveled = y_traveled + (current_dist+bump_distance)*sin(current_angle);
+            angle_since_bump = angle_since_bump + current_turn;
+            distance_since_bump = distance_since_bump + current_dist;
         end
             
         % Increase turning radius if it is time
@@ -107,7 +112,7 @@ function finalRad= WallFollower(serPort)
         end
         
         % Briefly pause to avoid continuous loop iteration
-        pause(0.2)
+        pause(0.1)
         disp x
         disp (x_traveled);
         disp y
