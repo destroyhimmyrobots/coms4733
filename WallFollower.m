@@ -37,6 +37,7 @@ function finalRad= WallFollower(serPort)
     y_traveled = 0;
     current_angle = 0;
     angle_since_bump = 0;
+    prev_angle_since_bump = 0;
     distance_since_bump = 0;
     v= 0;               % Forward velocity (m/s)
     w= v2w(v);          % Angular velocity (rad/s)
@@ -67,10 +68,11 @@ function finalRad= WallFollower(serPort)
             found_wall = 1;
             bump_distance = DistanceSensorRoomba(serPort); % Reset odometry too
             bump_angle = AngleSensorRoomba(serPort);
-            %angle_since_bump = angle_since_bump + bump_angle;
-            if abs(angle_since_bump) > pi/16
+            angle_since_bump = angle_since_bump - bump_angle;
+            if abs((angle_since_bump + prev_angle_since_bump)/2) > pi/16
                 current_angle = current_angle + angle_since_bump
             end
+            prev_angle_since_bump = angle_since_bump;
             angle_since_bump = 0;
             distSansBump = 0;
             angTurned = 0;
