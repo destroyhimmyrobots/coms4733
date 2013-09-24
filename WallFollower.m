@@ -27,7 +27,8 @@ function finalRad= WallFollower(serPort)
     maxVelIncr= 0.005;  % Max incrementation of forward velocity (m/s)
     maxOdomAng= pi*10;   % Max angle to move around a circle before 
                         % increasing the turning radius (rad)
-    
+    turning_left = 0; % AKA turning left
+    turning_right = 0; % CHECK IF > 3 for turning right
     
     % Initialize loop variables
     tStart= tic;        % Time limit marker
@@ -67,9 +68,12 @@ function finalRad= WallFollower(serPort)
             found_wall = 1;
             bump_distance = DistanceSensorRoomba(serPort); % Reset odometry too
             bump_angle = AngleSensorRoomba(serPort);
-            %angle_since_bump = angle_since_bump + bump_angle;
-            if abs(angle_since_bump) > pi/16
-                current_angle = current_angle + angle_since_bump
+            angle_since_bump = angle_since_bump + bump_angle;
+        
+            turning_left
+            turning_right
+            if abs(angle_since_bump) > pi/16 || turning_left
+                current_angle = current_angle + angle_since_bump;
             end
             angle_since_bump = 0;
             distSansBump = 0;
@@ -78,8 +82,14 @@ function finalRad= WallFollower(serPort)
             % Start moving again at previous velocities
             %SetFwdVelAngVelCreate(serPort,0,0.5)
         elseif found_wall
+            
+            turning_left
+            turning_right
+            turning_right = turning_right + 1;
+            turning_left = 0;
             SetFwdVelAngVelCreate(serPort,maxFwdVel/4,-0.5)
         else
+            turning_left  = 0;
             SetFwdVelAngVelCreate(serPort,v,-0.5)
             v = v + maxVelIncr
         end
@@ -97,8 +107,7 @@ function finalRad= WallFollower(serPort)
             x_traveled = x_traveled + (current_dist + bump_distance)*cos(current_angle);
             y_traveled = y_traveled + (current_dist + bump_distance)*sin(current_angle);
         end
-        disp angle_since_bump
-        disp (angle_since_bump)
+
             
         % Increase turning radius if it is time
  
@@ -119,8 +128,8 @@ function finalRad= WallFollower(serPort)
         disp (x_traveled);
         disp y
         disp (y_traveled);
-        disp angle
-        disp (current_angle);
+        current_angle
+
     end
     
     % Specify output parameter
@@ -137,9 +146,7 @@ function finalRad= WallFollower(serPort)
     % delete(serPort)
     % clear(serPort)
     % Don't use these if you call RoombaInit prior to the control program
-end
-
-
+    
 function bumped= bumpCheckReact(serPort)
 % Check bump sensors and steer the robot away from obstacles if necessary
 %
@@ -171,12 +178,15 @@ function bumped= bumpCheckReact(serPort)
         
         % Turn away from obstacle
         if BumpRight
+            turning_right = 0;
             SetFwdVelAngVelCreate(serPort,0,0.5)  % Turn counter-clockwise
             ang= 0;  % Angle to turn
         elseif BumpLeft
+            turning_left = 0;
             SetFwdVelAngVelCreate(serPort,v,v2w(v)) % Turn clockwise
             ang= pi/16;
         elseif BumpFront
+            turning_left = 1;
             SetFwdVelAngVelCreate(serPort,0,0.3)  % Turn counter-clockwise
             ang= pi/8;                          % Turn further
         end
@@ -211,3 +221,5 @@ function w= v2w(v)
     % Max velocity combinations obey rule v+wr <= v_max
     w= (maxWheelVel-v)/robotRadius;
 end
+end
+
