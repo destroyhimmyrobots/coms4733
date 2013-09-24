@@ -83,13 +83,26 @@ function finalRad = create_wall_follower_wallsensor(serPort)
     v           = norm_v;
     corner_v    = norm_v;
     tStart      = tic;
-    
+
+    total_turn  = 0;
+    x_traveled  = 0;
+    y_traveled  = 0;
+
     % Enter main loop
     while (toc(tStart) < maxDuration)
-                
+
         [bump_right, bump_left , ~, ~, ~, bump_front] = ...
             BumpsWheelDropsSensorsRoomba(serPort);
         
+        angTurned      = angTurned + current_turn;
+
+        x_traveled = x_traveled + ...
+            + DistanceSensorRoomba(serPort)...
+            * cos(AngleSensorRoomba(serPort));
+        y_traveled = y_traveled + ...
+            + DistanceSensorRoomba(serPort)...
+            * cos(AngleSensorRoomba(serPort));
+
         hit_wall     = bump_right || bump_left || bump_front;
         seen_wall    = WallSensorReadRoomba(serPort);
         
@@ -113,18 +126,18 @@ function finalRad = create_wall_follower_wallsensor(serPort)
             
             seen_wall = WallSensorReadRoomba(serPort);
             AngleSensorRoomba(serPort);
-            total_turned = 0;
+            finding_ang = 0;
             
-            while ~seen_wall && total_turned < (2*pi)
+            while ~seen_wall && finding_ang < (2*pi)
                 fprintf('Turning...\n');
-                total_turned = total_turned + AngleSensorRoomba(serPort);
-                fprintf('Turned %0.3g so far', total_turned);
+                finding_ang = finding_ang + AngleSensorRoomba(serPort);
+                fprintf('Turned %0.3g so far', finding_ang);
                 turnAngle(serPort, turn_v, ang);
                 pause(WAIT_TIME);
                 seen_wall = WallSensorReadRoomba(serPort);
             end
             
-            if total_turned >= (2*pi)
+            if finding_ang >= (2*pi)
                 fprintf('Did a barrel roll! Problem?\n');
             elseif seen_wall 
                 % Don't do this if we 360. Corner instead.
