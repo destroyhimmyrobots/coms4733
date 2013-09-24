@@ -20,12 +20,12 @@ function finalRad= WallFollower(serPort)
 % CreateMatlabSim@gmail.com
 
     % Set constants for this program
-    maxDuration= 12000;  % Max time to allow the program to run (s)
+    maxDuration= 60;  % Max time to allow the program to run (s)
     maxDistSansBump= 100;% Max distance to travel without obstacles (m)
     maxFwdVel= 0.5;     % Max allowable forward velocity with no angular 
                         % velocity at the time (m/s)
     maxVelIncr= 0.005;  % Max incrementation of forward velocity (m/s)
-    maxOdomAng= pi/4;   % Max angle to move around a circle before 
+    maxOdomAng= pi*10;   % Max angle to move around a circle before 
                         % increasing the turning radius (rad)
     
     
@@ -40,7 +40,7 @@ function finalRad= WallFollower(serPort)
     w= v2w(v);          % Angular velocity (rad/s)
     found_wall = 0;
     % Start robot moving
-    SetFwdVelAngVelCreate(serPort,maxFwdVel,0)
+    SetFwdVelAngVelCreate(serPort,0,0)
     
     %
     BUMP_RIGHT = 1;
@@ -143,8 +143,17 @@ function bumped= bumpCheckReact(serPort)
 % bumped - Boolean, true if bump sensor is activated
 
     % Check bump sensors (ignore wheel drop sensors)
-    [BumpRight BumpLeft WheDropRight WheDropLeft WheDropCaster ...
-        BumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
+    [BumpRight BumpLeft WheDropRight WheDropLeft WheDropCaster BumpFront] = BumpsWheelDropsSensorsRoomba(serPort);
+    if isnan(BumpRight)
+        BumpRight = 0;
+    end
+    if isnan(BumpLeft)
+        BumpLeft = 0;
+    end
+    if isnan(BumpFront)
+        BumpFront = 0;
+    end
+    
     bumped= BumpRight || BumpLeft || BumpFront;
     
     % Halt forward motion and turn only if bumped
@@ -155,13 +164,13 @@ function bumped= bumpCheckReact(serPort)
         
         % Turn away from obstacle
         if BumpRight
-            SetFwdVelAngVelCreate(serPort,v,0.3)  % Turn counter-clockwise
+            SetFwdVelAngVelCreate(serPort,0,0.5)  % Turn counter-clockwise
             ang= 0;  % Angle to turn
         elseif BumpLeft
-            SetFwdVelAngVelCreate(serPort,v,w) % Turn clockwise
+            SetFwdVelAngVelCreate(serPort,v,v2w(v)) % Turn clockwise
             ang= pi/16;
-        elseif BumpFront && ~BumpRight
-            SetFwdVelAngVelCreate(serPort,v,w)  % Turn counter-clockwise
+        elseif BumpFront
+            SetFwdVelAngVelCreate(serPort,0,0.3)  % Turn counter-clockwise
             ang= pi/8;                          % Turn further
         end
         
