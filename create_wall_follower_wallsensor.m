@@ -46,7 +46,7 @@ function finalRad = create_wall_follower_wallsensor(serPort)
     norm_v       = 0.2;
     norm_dist    = 0.1;
     norm_angv    = 0.3;
-    backup_dist  = -0.02;
+    backup_dist  = -0.01;
     v            = norm_v;    % Forward velocity (m/s)
     w            = v2w(v);    % Angular velocity (rad/s)
     turn_v       = norm_v;
@@ -145,11 +145,13 @@ function finalRad = create_wall_follower_wallsensor(serPort)
             end
 
         elseif seen_wall
+          % HERE
             corner_v = norm_v;
             fprintf('\nI see the wall!\n');
             travelDist(serPort, v, norm_dist);
         
         else % Cornering
+          % HERE
             fprintf('Lost the wall. Cornering...\n\n');
             corner_v = min(corner_v + inc_vel, maxFwdVel);
             SetFwdVelAngVelCreate(serPort, corner_v , corner_angv);
