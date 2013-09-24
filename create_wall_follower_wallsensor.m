@@ -36,10 +36,9 @@ function finalRad = create_wall_follower_wallsensor(serPort)
     angTurned    = 0;         % Angle turned since turning radius increase (rad)    
     maxFwdVel       = 0.3;    % Max allowable forward velocity with no angular 
                               % velocity at the time (m/s)
-    inc_vel         = 0.005;  % Max incrementation of forward velocity (m/s)
+    inc_vel         = 0.05;  % Max incrementation of forward velocity (m/s)
     max_odom_ang    = pi/4;   % Max angle to move around a circle before 
                               % increasing the turning radius (rad)
-    
 
     tStart       = tic;       % Time limit marker
     hit_wall     = 0;
@@ -55,7 +54,7 @@ function finalRad = create_wall_follower_wallsensor(serPort)
     corner_angv  = -0.5;
     
     % Look for a wall
-    while ~hit_wall && toc(tStart) <= maxDuration
+    while (~hit_wall) && (toc(tStart) <= maxDuration)
         [bump_right, bump_left , ~, ~, ~, bump_front] = ...
             BumpsWheelDropsSensorsRoomba(serPort);
         
@@ -94,8 +93,6 @@ function finalRad = create_wall_follower_wallsensor(serPort)
         [bump_right, bump_left , ~, ~, ~, bump_front] = ...
             BumpsWheelDropsSensorsRoomba(serPort);
         
-        angTurned      = angTurned + current_turn;
-
         x_traveled = x_traveled + ...
             + DistanceSensorRoomba(serPort)...
             * cos(AngleSensorRoomba(serPort));
