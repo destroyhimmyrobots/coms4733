@@ -74,11 +74,12 @@ function finalRad= WallFollower(serPort)
             if (right_adjust > 3)
                 angle_since_bump = angle_since_bump + pi/8;
             else
-                angle_since_bump = angle_since_bump - bump_angle;
+                angle_since_bump = angle_since_bump + bump_angle;
             end        
             if abs((angle_since_bump + prev_angle_since_bump + prev_angle_since_bump_2)/3) > pi/14 || turning_left
                 if turning_left
                     disp 'because of turning left'
+                     current_angle = current_angle + pi/16;
                 else
                     disp((angle_since_bump + prev_angle_since_bump + prev_angle_since_bump_2)/3)
                 end
