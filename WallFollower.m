@@ -38,6 +38,7 @@ function finalRad= WallFollower(serPort)
     y_traveled = 0;
     current_angle = 0;
     angle_since_bump = 0;
+    prev_angle_since_bump = 0;
     distance_since_bump = 0;
     v= 0;               % Forward velocity (m/s)
     w= v2w(v);          % Angular velocity (rad/s)
@@ -72,9 +73,10 @@ function finalRad= WallFollower(serPort)
         
             turning_left
             turning_right
-            if abs(angle_since_bump) > pi/16 || turning_left
+            if abs((angle_since_bump + prev_angle_since_bump)/2) > pi/16 || turning_left
                 current_angle = current_angle + angle_since_bump;
             end
+            prev_angle_since_bump = angle_since_bump;
             angle_since_bump = 0;
             distSansBump = 0;
             angTurned = 0;
