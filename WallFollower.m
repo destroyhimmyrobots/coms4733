@@ -20,7 +20,7 @@ function finalRad= WallFollower(serPort)
 % CreateMatlabSim@gmail.com
 
     % Set constants for this program
-    maxDuration= 150;  % Max time to allow the program to run (s)
+    maxDuration= 1500;  % Max time to allow the program to run (s)
     maxDistSansBump= 100;% Max distance to travel without obstacles (m)
     maxFwdVel= 0.5;     % Max allowable forward velocity with no angular 
                         % velocity at the time (m/s)
@@ -45,6 +45,7 @@ function finalRad= WallFollower(serPort)
     v= 0;               % Forward velocity (m/s)
     w= v2w(v);          % Angular velocity (rad/s)
     found_wall = 0;
+    following_wall = 0;
     % Start robot moving
     SetFwdVelAngVelCreate(serPort,0,0)
     
@@ -76,10 +77,10 @@ function finalRad= WallFollower(serPort)
             else
                 angle_since_bump = angle_since_bump + bump_angle;
             end        
-            if abs((angle_since_bump + prev_angle_since_bump + prev_angle_since_bump_2)/3) > pi/14 || turning_left
+            if abs((angle_since_bump + prev_angle_since_bump + prev_angle_since_bump_2)/3) > pi/13 || turning_left
                 if turning_left
                     disp 'because of turning left'
-                     current_angle = current_angle + pi/16;
+                     current_angle = current_angle + pi/45;
                 else
                     disp((angle_since_bump + prev_angle_since_bump + prev_angle_since_bump_2)/3)
                 end
@@ -188,6 +189,10 @@ function bumped= bumpCheckReact(serPort)
         
         % Turn away from obstacle
         if BumpRight
+            if ~following_wall
+                current_angle = 0;
+                following_wall = 1;
+            end
             turning_right = 0;
             SetFwdVelAngVelCreate(serPort,0,0.5)  % Turn counter-clockwise
             ang= 0;  % Angle to turn
@@ -216,7 +221,7 @@ end
 
 function finished= check_return_to_origin(x_pos, y_pos)
     dist = ((x_pos^2)+ (y_pos^2))^(1/2)
-    if dist < 0.65 && toc(tStart) > 20
+    if dist < 0.65 && abs(current_angle) >= 1.7*pi
         finished = 1;
     else
         finished = 0;
