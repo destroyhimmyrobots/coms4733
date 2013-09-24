@@ -39,7 +39,9 @@ function finalRad= WallFollower(serPort)
     current_angle = 0;
     angle_since_bump = 0;
     prev_angle_since_bump = 0;
+    prev_angle_since_bump_2 = 0;
     distance_since_bump = 0;
+    finished = 0;
     v= 0;               % Forward velocity (m/s)
     w= v2w(v);          % Angular velocity (rad/s)
     found_wall = 0;
@@ -55,12 +57,12 @@ function finalRad= WallFollower(serPort)
     
     
     % Enter main loop
-    while toc(tStart) < maxDuration && distSansBump <= maxDistSansBump
+    while toc(tStart) < maxDuration && distSansBump <= maxDistSansBump && ~finished
         %sensor_data = AllSensorsReadRoomba(serPort)
         %bumped_front = sensor_data(BUMP_FRONT);
         %bumped_left = sensor_data(BUMP_LEFT);
         %bumped_right = sensor_data(BUMP_RIGHT);
-        
+        right_adjust = turning_right;
         bumped = bumpCheckReact(serPort);
         % If obstacle was hit reset distance and angle recorders
         bump_distance = 0;
@@ -69,13 +71,20 @@ function finalRad= WallFollower(serPort)
             found_wall = 1;
             bump_distance = DistanceSensorRoomba(serPort); % Reset odometry too
             bump_angle = AngleSensorRoomba(serPort);
-            angle_since_bump = angle_since_bump + bump_angle;
-        
-            turning_left
-            turning_right
-            if abs((angle_since_bump + prev_angle_since_bump)/2) > pi/16 || turning_left
+            if (right_adjust > 3)
+                angle_since_bump = angle_since_bump + pi/8;
+            else
+                angle_since_bump = angle_since_bump - bump_angle;
+            end        
+            if abs((angle_since_bump + prev_angle_since_bump + prev_angle_since_bump_2)/3) > pi/14 || turning_left
+                if turning_left
+                    disp 'because of turning left'
+                else
+                    disp((angle_since_bump + prev_angle_since_bump + prev_angle_since_bump_2)/3)
+                end
                 current_angle = current_angle + angle_since_bump;
             end
+            prev_angle_since_bump_2 = prev_angle_since_bump;
             prev_angle_since_bump = angle_since_bump;
             angle_since_bump = 0;
             distSansBump = 0;
@@ -83,10 +92,7 @@ function finalRad= WallFollower(serPort)
             
             % Start moving again at previous velocities
             %SetFwdVelAngVelCreate(serPort,0,0.5)
-        elseif found_wall
-            
-            turning_left
-            turning_right
+        elseif found_wall        
             turning_right = turning_right + 1;
             turning_left = 0;
             SetFwdVelAngVelCreate(serPort,maxFwdVel/4,-0.5)
@@ -126,11 +132,12 @@ function finalRad= WallFollower(serPort)
         
         % Briefly pause to avoid continuous loop iteration
         pause(0.1)
-        disp x
-        disp (x_traveled);
-        disp y
-        disp (y_traveled);
+        %disp x
+        %disp (x_traveled);
+        %disp y
+        %disp (y_traveled);
         current_angle
+        finished = check_return_to_origin(x_traveled, y_traveled);
 
     end
     
@@ -203,6 +210,15 @@ function bumped= bumpCheckReact(serPort)
         % this way is just more fun
     else
          %SetFwdVelAngVelCreate(serPort,maxFwdVel,0.5)
+    end
+end
+
+function finished= check_return_to_origin(x_pos, y_pos)
+    dist = ((x_pos^2)+ (y_pos^2))^(1/2)
+    if dist < 0.65 && toc(tStart) > 20
+        finished = 1;
+    else
+        finished = 0;
     end
 end
 
