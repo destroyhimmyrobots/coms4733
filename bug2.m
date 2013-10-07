@@ -90,11 +90,10 @@ function [end_x, end_y, end_t] = bug2(serPort)
     SetFwdVelAngVelCreate(serPort, 0, 0);
     
     % Turn to original orientation?
-    
     if finished
         fprintf('\nBUG2:\t%s\n', 'Finished.');
     end
-    
+
     if unreachable
         fprintf('\nBUG2:\t%s\n', 'Goal is unreachable.');
     else
@@ -117,10 +116,11 @@ function q_now = update_dist_orient(serPort, q_prev)
     tmp_dist = DistanceSensorRoomba(serPort);
     pause(WAIT_TIME);
     tmp_t = AngleSensorRoomba(serPort);
+    pause(WAIT_TIME);
+    
     q_now(3) = mod(q_prev(3) + tmp_t, pi);
     q_now(1) = q_prev(1) + tmp_dist*cos(q_now(3));
     q_now(2) = q_prev(2) + tmp_dist*sin(q_now(3));
-
 
     if DEBUG
         fprintf('UPDATE_DIST_ORIENT:\t[ x: %0.3g , y:%0.3g , t:%0.3g ]\n', q_now(1), q_now(2), q_now(3));
@@ -188,7 +188,6 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
         hit_now      = update_dist_orient(serPort, hit_prev);
         hit_dist     = distance(hit_now, hit_prev);
         hit_prev     = hit_now;
-        pause(WAIT_TIME);
 
         % Update global distance values
         if DEBUG
@@ -196,7 +195,6 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
         end
         q_now  = update_dist_orient(serPort, q_prev);
         q_prev = q_now;
-        pause(WAIT_TIME);
 
         switch status
             case 2 % Wall Follow | Haven't left the threshold of the hit point
@@ -239,37 +237,25 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
             unreachable = true;
             break;
         else
-            satisfactory_m_line_encounter = false;
-            if DEBUG
-                fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Testing M-line.');
-            end
-            idx = 1;
-            % Reduce number of values tested by ignoring mline_x > q_now_x
-            % !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            % Need to test that q_now is within (-10, 10) on x-axis!
-            % !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            while m_line(idx,1) <= q_now(1) + d_tol
-            % for i=1:length(m_line)
-                if points_match(q_now, m_line(idx,:)) ...
-                        && (distance(q_goal, m_line(idx,:)) < distance(q_last_hit, m_line(idx,:))) ...
-                        && ~points_match(q_now, q_last_hit)
-                    satisfactory_m_line_encounter = true;
-                    break;
-                end
-                idx = idx + 1;
-            end
-            if satisfactory_m_line_encounter
+            m_line_reencounter = false;
+            % To test the m-line, we need only see how far the y-coordinate
+            % is from the y-origin.
+            if q_now(2) <= d_tol ...
+                    && distance(q_now, q_goal) < distance(q_now, q_last_hit) ...
+                    && ~points_match(q_now, q_last_hit)
+                m_line_reencounter = true;
                 if DEBUG
-                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'M-line re-encounter OK.');
+                    fprintf('WALL_FOLLOW_HANDLER:\t%s\n', 'M-line re-encounter OK.');
                 end
                 break;
             else
                 if DEBUG
-                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'M-line not encountered.');
+                    fprintf('WALL_FOLLOW_HANDLER:\t%s\n', 'M-line not encountered.');
                 end
             end
+            
         end
-     end
+    end
     
     new_pos = q_now;
 end
@@ -282,7 +268,7 @@ function follow_wall(serPort, fwd_vel, ang_vel, R, L, F, wall)
     av_nowall    = -4 * ang_vel;
 
     if R || L || F
-        v = 0;                              % Set Velocity to 0
+        v = 0;                         % Set Velocity to 0
     elseif ~wall
         v = 0.25 * fwd_vel;            % Set Velocity to 1/4 of the default
     else
