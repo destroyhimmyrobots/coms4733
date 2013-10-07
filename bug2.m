@@ -253,7 +253,6 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
                     fprintf('WALL_FOLLOW_HANDLER:\t%s\n', 'M-line not encountered.');
                 end
             end
-            
         end
     end
     
