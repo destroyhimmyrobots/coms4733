@@ -111,15 +111,16 @@ end
 
 function q_now = update_dist_orient(serPort, q_prev)    
     global DEBUG;
+    global WAIT_TIME;
     
     % Update current position & orientation
-    tmp_x = DistanceSensorRoomba(serPort);
-    tmp_y = DistanceSensorRoomba(serPort);
+    tmp_dist = DistanceSensorRoomba(serPort);
+    pause(WAIT_TIME);
     tmp_t = AngleSensorRoomba(serPort);
-    q_now(1) = q_prev(1) + tmp_x*cos(tmp_t);
-    q_now(2) = q_prev(2) + tmp_y*sin(tmp_t);
+    q_now(1) = q_prev(1) + tmp_dist*cos(tmp_t);
+    q_now(2) = q_prev(2) + tmp_dist*sin(tmp_t);
     q_now(3) = q_prev(3) + tmp_t;
-    
+
     if DEBUG
         fprintf('UPDATE_DIST_ORIENT:\t[ x: %0.3g , y:%0.3g , t:%0.3g ]\n', q_now(1), q_now(2), q_now(3));
     end
@@ -190,7 +191,7 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
 
         % Update global distance values
         if DEBUG
-            fprintf('\nWALL_FOLLOW_HANDLER:\tQ_NOW:\t ');
+            fprintf('\nWALL_FOLLOW_HANDLER:\tQ_NOW:\t\t');
         end
         q_now  = update_dist_orient(serPort, q_prev);
         q_prev = q_now;
@@ -239,7 +240,7 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
         else
             satisfactory_m_line_encounter = false;
             if DEBUG
-                fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Testing M-LINE');
+                fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Testing M-line.');
             end
             idx = 1;
             % Reduce number of values tested by ignoring mline_x > q_now_x
