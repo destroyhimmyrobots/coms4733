@@ -5,9 +5,9 @@ function [end_x, end_y, end_t] = bug2(serPort)
     global DEBUG;     DEBUG = true;
     
     % Movement variables
-    max_v = 0.5;
-    v = 0.25;
-    w = v2w(v);
+    global max_v; max_v = 0.5;
+    global v;     v     = 0.2;
+    global w;     w     = 0.1; % v2w(v);
     
     % Loop control & vector indices
     finished = false;
@@ -131,7 +131,7 @@ function d = distance(p1, p2)
     d = sqrt ( (p2(x) - p1(x))^2 + (p2(y) - p1(y))^2 );
     
     if DEBUG
-        fprintf('DISTANCE:\t%0.3g\n', d);
+        fprintf('REMAINING DISTANCE:\t%0.3g\n', d);
     end    
 end
 
@@ -142,7 +142,7 @@ function match = points_match(p1, p2)
     d = distance(p1, p2);
     
     if DEBUG
-        fprintf('POINTS_MATCH:\tTesting [ %0.3g , %0.3g ]\t[ %0.3g , %0.3g ]\n', p1(1), p1(2), p2(1), p2(2));
+        fprintf('POINTS_MATCH:\t\t\t\t[ %0.3g , %0.3g ] ? [ %0.3g , %0.3g ]\n', p1(1), p1(2), p2(1), p2(2));
     end
     
     if (d <= tol)
@@ -156,14 +156,67 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
         q_now, q_last_hit)
 
     global DEBUG;
+    global WAIT_TIME;
     global q_goal;
     global m_line;
+    global v;
+    global w;
     
-    finished = false;    
+    hit_now  = zeros(1,3);
+    hit_prev = zeros(1,3);
+    q_prev   = q_now;
+    
+    dist_from_init_hit = 0.2;
+
+    finished    = false;
     unreachable = false;
-    
+
     status = 2;
+
     while (true)
+        [~, R, L, F] = bump_check(serPort);
+        wall         = WallSensorReadRoomba(serPort);
+
+        % Update local distance values
+        if DEBUG
+            fprintf('WALL_FOLLOW_HANDLER:\tHIT_NOW:\t');
+        end
+        hit_now      = update_dist_orient(serPort, hit_prev);
+        hit_dist     = distance(hit_now, hit_prev);
+        hit_prev     = hit_now;
+        
+        switch status
+            case 2 % Wall Follow | Haven't left the threshold of the hit point
+                fprintf('WALL_FOLLOW_HANDER:\t\tCase 2\n');
+                follow_wall(serPort, v, w, R, L, F, wall);
+                if (hit_dist > dist_from_init_hit)
+                    status = 3;
+                end
+            case 3 % Wall Follow | Left the threshold of the hit point
+                fprintf('WALL_FOLLOW_HANDER:\t\tCase 3\n');
+                follow_wall(serPort, v, w, R, L, F, wall);
+                if(hit_dist < dist_from_init_hit)
+                    status = 4;
+                end
+            case 4 % Go Back to Start Position
+                fprintf('WALL_FOLLOW_HANDER:\t\tCase 4\n');
+                turnAngle(serPort, w, hit_now(3));
+                hit_now(3) = mod(hit_now(3), pi) + pi;
+                if (pi * 0.9 < hit_now(3)) && (hit_now(3) < pi * 1.1)
+                    SetFwdVelAngVelCreate(serPort, v, 0 );
+                    status = 2;
+                end
+        end
+        
+        pause(WAIT_TIME);
+        
+        % Update global distance values
+        if DEBUG
+            fprintf('WALL_FOLLOW_HANDLER:\tQ_NOW:\t ');
+        end
+        q_now  = update_dist_orient(serPort, q_prev);
+        q_prev = q_now;
+
         % Check if we have reached the goal before continuing to follow.
         if points_match(q_now, q_goal)
             if DEBUG
@@ -171,11 +224,11 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
             end
             finished = true;
             break;
-
-        elseif points_match(q_now, q_last_hit)
+        elseif (hit_dist > 0) ... % Hack to ensure we move before checking q_hit
+                && points_match(q_now, q_last_hit)
             if DEBUG
                 fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Point matched last hit.');
-            end            
+            end
             finished = true;
             unreachable = true;
             break;
@@ -199,59 +252,7 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
                 break;
             end
         end
-
-        [~, BumpRight, BumpLeft, BumpFront] = bump_check(serPort);
-        wall = WallSensorReadRoomba(SerPort);        
-        q_prev = q_now;
-        
-        switch status
-            case 2 % Wall Follow | Haven't left the threshold of the hit point
-                fprintf('WALL_FOLLOW_HANDER:\t\tCase 2\n');
-                follow_wall(velocity_val, angular_velocity_val, ...
-                    BumpRight, BumpLeft, BumpFront, wall, serPort);
-                if (hit_distance > dist_from_first_hit_point)
-                    status = 3;
-                end
-            case 3 % Wall Follow | Left the threshold of the hit point
-                fprintf('WALL_FOLLOW_HANDER:\t\tCase 3\n');
-                follow_wall(velocity_val, angular_velocity_val, ...
-                    BumpRight, BumpLeft, BumpFront, wall, serPort);
-                if(hit_distance < dist_from_first_hit_point)
-                    status = 4;
-                end
-            case 4 % Go Back to Start Position
-                fprintf('WALL_FOLLOW_HANDER:\t\tCase 4\n');
-                turnAngle(serPort, angular_velocity_val, current_angle);
-                current_angle = mod(current_angle, pi) + pi;
-                if (pi * 0.9 < current_angle) && (current_angle < pi * 1.1)
-                    SetFwdVelAngVelCreate(serPort, velocity_val, 0 );
-                    %                    status = 5;
-                    status = 2;
-                end
-        end
-        
-        % Update global distance values
-        q_now = update_dist_orient(serPort, q_prev);
-        
-        %case 1 % Move Forward
-        %fprintf('WALL_FOLLOW_HANDLER:\t\tMoving Forward\n');
-        %SetFwdVelAngVelCreate(serPort, velocity_val, 0 );
-        %[bumped, BumpRight, BumpLeft, bumpFront] = bump_check(serPort);
-        %if bumped
-        %status = 2; % Change Status to Wall Follow
-        %first_hit_angle = 0;
-        %first_hit_pos_x = 0;
-        %first_hit_pos_y = 0;
-        %end
-        %case 5 % Stop and Orient at Start Position
-        %if start_distance < dist_from_start_point
-        %fprintf('Robot stopped to start point\n');
-        %SetFwdVelAngVelCreate(serPort, 0, 0 );
-        %fprintf('Turning to initial orientation\n');
-        %turnAngle(serPort, angular_velocity_val, 180);
-        %fprintf('Robot returned to start position\n');
-        %return;
-    end
+     end
     
     new_pos = q_now;
 end
