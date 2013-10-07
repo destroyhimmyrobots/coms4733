@@ -1,13 +1,15 @@
 function [end_x, end_y, end_t] = bug2(serPort)
+    clc;
+    
     global WAIT_TIME;
     WAIT_TIME = 0.1;
+    global DEBUG;
+    DEBUG = true;
     
     % Movement variables
     max_v = 0.5;
     v = 0.2;
     w = v2w(v);
-    x_dist = 0;
-    y_dist = 0;
     travel_dist = 0.2; % meters
     
     % Loop control & vector indices
@@ -41,10 +43,10 @@ function [end_x, end_y, end_t] = bug2(serPort)
         q_past(q_index,:) = q_now;
         
         % Begin moving along the m-line
-        setFwdVelAngVelCreate(serPort, v, 0);
+        SetFwdVelAngVelCreate(serPort, v, 0);
         
         % Update present distance
-        q_now = update_dist_orient(serPort);
+        q_now = update_dist_orient(serPort, q_past(q_index,:));
         
         % Read sensors and check for bumps
         % Read wall Sensor
@@ -53,10 +55,16 @@ function [end_x, end_y, end_t] = bug2(serPort)
         
         % After moving, assess the current state
         if points_match(q_now, q_goal)
+            if DEBUG
+                fprintf('BUG2:\t\t%s\n', 'Point matched goal.');
+            end
             finished = true;
             unreachable = false;
     
         elseif bumped
+            if DEBUG
+                fprintf('BUG2:\t\t%s\n', 'Hit the wall.');
+            end
             qhp_index = qhp_index + 1;
             q_hit_points(qhp_index,:) = q_now;
             
@@ -103,17 +111,23 @@ function [end_x, end_y, end_t] = bug2(serPort)
 end
 
 function q_now = update_dist_orient(serPort, q_prev)    
+    global DEBUG;
+    
     % Update current position & orientation
     tmp_x = DistanceSensorRoomba(serPort);
     tmp_y = DistanceSensorRoomba(serPort);
     tmp_t = AngleSensorRoomba(serPort);
-    q_now(1) = q_prev(1) + tmp_x*cost(tmp_t);
+    q_now(1) = q_prev(1) + tmp_x*cos(tmp_t);
     q_now(2) = q_prev(2) + tmp_y*sin(tmp_t);
     q_now(3) = q_prev(3) + tmp_t;
+    
+    if DEBUG
+        fprintf('UPDATE_DIST_ORIENT:\t[x: %0.3g, y:%0.3g, t:%0.3g]\n', q_now(1), q_now(2), q_now(3));
+    end
 end
 
 function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
-        q_prev, q_last_hit)
+        q_now, q_last_hit)
 
     global q_goal;
     global m_line;
@@ -152,25 +166,25 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
 
         [~, BumpRight, BumpLeft, BumpFront] = bump_check(serPort);
         wall = WallSensorReadRoomba(SerPort);        
-
+        q_prev = q_now;
+        
         switch status
-          
             case 2 % Wall Follow | Haven't left the threshold of the hit point
-                fprintf('WALL_FOLLOW_HANDER:\t\tCase 2');
+                fprintf('WALL_FOLLOW_HANDER:\t\tCase 2\n');
                 follow_wall(velocity_val, angular_velocity_val, ...
                     BumpRight, BumpLeft, BumpFront, wall, serPort);
                 if (hit_distance > dist_from_first_hit_point)
                     status = 3;
                 end
             case 3 % Wall Follow | Left the threshold of the hit point
-                fprintf('WALL_FOLLOW_HANDER:\t\tCase 3');
+                fprintf('WALL_FOLLOW_HANDER:\t\tCase 3\n');
                 follow_wall(velocity_val, angular_velocity_val, ...
                     BumpRight, BumpLeft, BumpFront, wall, serPort);
                 if(hit_distance < dist_from_first_hit_point)
                     status = 4;
                 end
             case 4 % Go Back to Start Position
-                fprintf('WALL_FOLLOW_HANDER:\t\tCase 4');
+                fprintf('WALL_FOLLOW_HANDER:\t\tCase 4\n');
                 turnAngle(serPort, angular_velocity_val, current_angle);
                 current_angle = mod(current_angle, pi) + pi;
                 if (pi * 0.9 < current_angle) && (current_angle < pi * 1.1)
@@ -182,7 +196,6 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
         
         % Update global distance values
         q_now = update_dist_orient(serPort, q_prev);
-        q_prev = q_now;
         
         %case 1 % Move Forward
         %fprintf('WALL_FOLLOW_HANDLER:\t\tMoving Forward\n');
@@ -252,8 +265,14 @@ function [yn, R, L, F] = bump_check(serPort)
 end
 
 function match = points_match(p1, p2)
+    global DEBUG;
+    
     tol = 0.1;
     d = distance(p1, p2);
+    
+    if DEBUG
+        fprintf('POINTS_MATCH:\tTesting [%0.3g, %0.3g]\t[%0.3g, %0.3g]', p1(1), p1(2), p2(1), p2(2));
+    end
     
     if (d <= tol)
         match = true;
@@ -263,9 +282,14 @@ function match = points_match(p1, p2)
 end
 
 function d = distance(p1, p2)
+    global DEBUG;
     x = 1;
     y = 2;
     d = sqrt ( (p2(x) - p1(x))^2 + (p2(y) - p1(y))^2 );
+    
+    if DEBUG
+        fprintf('DISTANCE:\t[%0.3g, %0.3g]\n', d);
+    end    
 end
 
 function w = v2w(v)
