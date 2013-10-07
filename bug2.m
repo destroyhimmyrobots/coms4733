@@ -17,10 +17,11 @@ function [end_x, end_y, end_t] = bug2(serPort)
     
     % Define a point 10 meters away on the x-axis
     global q_goal; q_goal = [10, 0, 0.0];
+    global d_tol;  d_tol  = 0.1;
     
     % Define points along the m-line so as to search throught them.
-    m_line_x = (-10:1/30:10)';
-    m_line_y = m_line_x;
+    m_line_x = (-10: d_tol / 2 :10)';
+    m_line_y = zeros(length(m_line_x), 1);
     global m_line; m_line = [m_line_x, m_line_y zeros(length(m_line_x), 1)];
     
     % Define a vector of positions updated each time the robot moves.
@@ -128,7 +129,7 @@ function d = distance(p1, p2)
     global DEBUG;
     x = 1;
     y = 2;
-    d = sqrt ( (p2(x) - p1(x))^2 + (p2(y) - p1(y))^2 );
+    d = sqrt ( (p2(x) - p1(x))^2 + (p2(y) - p2(y))^2 );
     
     if DEBUG
         fprintf('DISTANCE:\t%0.3g\n', d);
@@ -137,15 +138,16 @@ end
 
 function match = points_match(p1, p2)
     global DEBUG;
+    global d_tol;
     
-    tol = 0.1;
+    % This tolerance value can be seen at work testing against the m-line.
     d = distance(p1, p2);
     
     if DEBUG
         fprintf('POINTS_MATCH:\t\t\t\t[ %0.3g , %0.3g ] ? [ %0.3g , %0.3g ]\n', p1(1), p1(2), p2(1), p2(2));
     end
     
-    if (d <= tol)
+    if (d <= d_tol)
         match = true;
     else
         match = false;
@@ -158,6 +160,7 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
     global DEBUG;
     global WAIT_TIME;
     global q_goal;
+    global d_tol;
     global m_line;
     global v;
     global w;
@@ -170,7 +173,6 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
 
     finished    = false;
     unreachable = false;
-
     status = 2;
 
     while (true)
@@ -179,13 +181,17 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
 
         % Update local distance values
         if DEBUG
-            fprintf('WALL_FOLLOW_HANDLER:\tHIT_NOW:\t');
+            fprintf('\nWALL_FOLLOW_HANDLER:\tHIT_NOW:\t');
         end
         hit_now      = update_dist_orient(serPort, hit_prev);
         hit_dist     = distance(hit_now, hit_prev);
         hit_prev     = hit_now;
         pause(WAIT_TIME);
-        
+
+        % Update global distance values
+        if DEBUG
+            fprintf('\nWALL_FOLLOW_HANDLER:\tQ_NOW:\t ');
+        end
         q_now  = update_dist_orient(serPort, q_prev);
         q_prev = q_now;
         pause(WAIT_TIME);
@@ -213,13 +219,9 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
                 end
         end
 
-        % Update global distance values
-        if DEBUG
-            fprintf('WALL_FOLLOW_HANDLER:\tQ_NOW:\t ');
-        end
-
+        % --------------------------------------------------------------
         % Check if we have reached the goal before continuing to follow.
-        disp('hi');
+        % --------------------------------------------------------------
         if points_match(q_now, q_goal)
             if DEBUG
                 fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Point matched goal.');
@@ -236,22 +238,33 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
             break;
         else
             satisfactory_m_line_encounter = false;
-            fprintf('\nWALL_FOLLOW_HANDLER:\t%s', 'Testing M-LINE');
-            for i=1:length(m_line)
-                if points_match(q_now, m_line(i,:)) ...
-                        && (distance(q_goal, m_line(i,:)) ...
-                        < distance(q_last_hit, m_line(i,:))) ...
+            if DEBUG
+                fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Testing M-LINE');
+            end
+            idx = 1;
+            % Reduce number of values tested by ignoring mline_x > q_now_x
+            % !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            % Need to test that q_now is within (-10, 10) on x-axis!
+            % !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            while m_line(idx,1) <= q_now(1) + d_tol
+            % for i=1:length(m_line)
+                if points_match(q_now, m_line(idx,:)) ...
+                        && (distance(q_goal, m_line(idx,:)) < distance(q_last_hit, m_line(idx,:))) ...
                         && ~points_match(q_now, q_last_hit)
-                    
                     satisfactory_m_line_encounter = true;
                     break;
                 end
+                idx = idx + 1;
             end
             if satisfactory_m_line_encounter
                 if DEBUG
                     fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'M-line re-encounter OK.');
                 end
                 break;
+            else
+                if DEBUG
+                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'M-line not encountered.');
+                end
             end
         end
      end
