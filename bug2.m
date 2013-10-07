@@ -18,6 +18,7 @@ function [end_x, end_y, end_t] = bug2(serPort)
     % Define a point 10 meters away on the x-axis
     global q_goal; q_goal = [10, 0, 0.0];
     global d_tol;  d_tol  = 0.1;
+    global a_tol;  a_tol  = 0.1;
     
     % Define points along the m-line so as to search throught them.
     m_line_x = (-10: d_tol / 2 :10)';
@@ -69,8 +70,18 @@ function [end_x, end_y, end_t] = bug2(serPort)
             % NOTE: must compensate for overshooting the m_line.
             [new_pos, finished, unreachable] = ...
                 wall_follow_handler(serPort, q_now, q_hit_points(qhp_index,:));
-
+            
+            % Turn the robot back along the m-line
             q_now = new_pos;
+            while abs(mod(q_now(3), 360) > a_tol
+                turnAngle(serPort, 0.2, 10);
+                pause(WAIT_TIME);
+                q_now = update_dist_orient(serPort, q_now);
+                if DEBUG
+                    fprintf('BUG2:\t%s:\t%0.3g', 'Reorienting to y = 0. Angle:', q_now(3));
+                end
+            end
+
         end
         
         if finished
@@ -160,10 +171,8 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
         q_now, q_last_hit)
 
     global DEBUG;
-    global WAIT_TIME;
     global q_goal;
     global d_tol;
-    global m_line;
     global v;
     global w;
     
@@ -177,7 +186,7 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
     unreachable = false;
     status = 2;
 
-    while (true)
+    while (true)      
         [~, R, L, F] = bump_check(serPort);
         wall         = WallSensorReadRoomba(serPort);
 
@@ -200,13 +209,13 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
             case 2 % Wall Follow | Haven't left the threshold of the hit point
                 fprintf('WALL_FOLLOW_HANDER:\t\tCase 2\n');
                 follow_wall(serPort, v, w, R, L, F, wall);
-                if (hit_dist > dist_from_init_hit)
+                if (norm(hit_now(1:2), 2) > dist_from_init_hit)
                     status = 3;
                 end
             case 3 % Wall Follow | Left the threshold of the hit point
                 fprintf('WALL_FOLLOW_HANDER:\t\tCase 3\n');
                 follow_wall(serPort, v, w, R, L, F, wall);
-                if(hit_dist < dist_from_init_hit)
+                if(norm(hit_now(1:2), 2) < dist_from_init_hit)
                     status = 4;
                 end
             case 4 % Go Back to Start Position
@@ -228,40 +237,46 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
             end
             finished = true;
             break;
-        elseif (hit_dist > 1) ... % Hack to ensure we move before checking q_hit
-                && points_match(q_now, q_last_hit)
-            if DEBUG
-                fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Point matched last hit.');
-            end
-            finished = true;
-            unreachable = true;
-            break;
-        else
-            m_line_reencounter = false;
-            % To test the m-line, we need only see how far the y-coordinate
-            % is from the y-origin.
-            if DEBUG
-                fprintf('\nWALL_FOLLOW_HANDLER:\t%s: %0.3g\n', 'q_now(y) = ', q_now(2));
-            end
-            if abs(q_now(2)) <= d_tol
-                d_goal = distance(q_now, q_goal);
-                d_last_hit = distance(q_now, q_last_hit);
+        elseif (norm(hit_now(1:2), 2) > 1) % Hack to ensure we move before checking q_hit
+            
+            if points_match(q_now, q_last_hit)
                 if DEBUG
-                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Intersected m-line.');
-                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s:\t\t%0.3g', 'Distance to goal:', d_goal);
-                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s:\t%0.3g', 'Distance to last hit:', d_last_hit);
+                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Point matched last hit.');
                 end
-
-                if (d_goal < d_last_hit) && ~points_match(q_now, q_last_hit)
-                    m_line_reencounter = true;
-                    if DEBUG
-                        fprintf('WALL_FOLLOW_HANDLER:\t%s\n', 'M-line re-encounter OK.');
-                    end
-                    break;
-                end
+                finished = true;
+                unreachable = true;
+                break;
+                
             else
+                m_line_reencounter = false;
+                % To test the m-line, we need only see how far the y-coordinate
+                % is from the y-origin.
                 if DEBUG
-                    fprintf('WALL_FOLLOW_HANDLER:\t%s\n', 'M-line not encountered.');
+                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s: %0.3g\n', 'q_now(y) = ', q_now(2));
+                end
+                if abs(q_now(2)) <= d_tol
+                    d_goal = distance(q_now, q_goal);
+                    % The algorithm states from the hit-point to the m-line,
+                    % which doesn't make sense. do hit point to goal instead.
+                    % d_last_hit = distance(q_now, q_last_hit);
+                    d_last_hit = distance(q_last_hit, q_goal);
+                    if DEBUG
+                        fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Intersected m-line.');
+                        fprintf('\nWALL_FOLLOW_HANDLER:\t%s:\t\t%0.3g', 'Distance to goal', d_goal);
+                        fprintf('\nWALL_FOLLOW_HANDLER:\t%s:\t%0.3g', 'Distance to last hit', d_last_hit);
+                    end
+                    
+                    if (d_goal < d_last_hit) && ~points_match(q_now, q_last_hit)
+                        m_line_reencounter = true;
+                        if DEBUG
+                            fprintf('WALL_FOLLOW_HANDLER:\t%s\n', 'M-line re-encounter OK.');
+                        end
+                        break;
+                    end
+                else
+                    if DEBUG
+                        fprintf('WALL_FOLLOW_HANDLER:\t%s\n', 'M-line not encountered.');
+                    end
                 end
             end
         end
