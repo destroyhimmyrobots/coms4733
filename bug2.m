@@ -19,7 +19,7 @@ function [end_x, end_y, end_t] = bug2(serPort)
     global q_goal; q_goal = [10, 0, 0.0];
     
     % Define points along the m-line so as to search throught them.
-    m_line_x = (-10:1/300:10)';
+    m_line_x = (-10:1/30:10)';
     m_line_y = m_line_x;
     global m_line; m_line = [m_line_x, m_line_y zeros(length(m_line_x), 1)];
     
@@ -131,7 +131,7 @@ function d = distance(p1, p2)
     d = sqrt ( (p2(x) - p1(x))^2 + (p2(y) - p1(y))^2 );
     
     if DEBUG
-        fprintf('REMAINING DISTANCE:\t%0.3g\n', d);
+        fprintf('DISTANCE:\t%0.3g\n', d);
     end    
 end
 
@@ -184,7 +184,12 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
         hit_now      = update_dist_orient(serPort, hit_prev);
         hit_dist     = distance(hit_now, hit_prev);
         hit_prev     = hit_now;
+        pause(WAIT_TIME);
         
+        q_now  = update_dist_orient(serPort, q_prev);
+        q_prev = q_now;
+        pause(WAIT_TIME);
+
         switch status
             case 2 % Wall Follow | Haven't left the threshold of the hit point
                 fprintf('WALL_FOLLOW_HANDER:\t\tCase 2\n');
@@ -207,24 +212,21 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
                     status = 2;
                 end
         end
-        
-        pause(WAIT_TIME);
-        
+
         % Update global distance values
         if DEBUG
             fprintf('WALL_FOLLOW_HANDLER:\tQ_NOW:\t ');
         end
-        q_now  = update_dist_orient(serPort, q_prev);
-        q_prev = q_now;
 
         % Check if we have reached the goal before continuing to follow.
+        disp('hi');
         if points_match(q_now, q_goal)
             if DEBUG
                 fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Point matched goal.');
             end
             finished = true;
             break;
-        elseif (hit_dist > 0) ... % Hack to ensure we move before checking q_hit
+        elseif (hit_dist > 1) ... % Hack to ensure we move before checking q_hit
                 && points_match(q_now, q_last_hit)
             if DEBUG
                 fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Point matched last hit.');
@@ -234,7 +236,7 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
             break;
         else
             satisfactory_m_line_encounter = false;
-            
+            fprintf('\nWALL_FOLLOW_HANDLER:\t%s', 'Testing M-LINE');
             for i=1:length(m_line)
                 if points_match(q_now, m_line(i,:)) ...
                         && (distance(q_goal, m_line(i,:)) ...
