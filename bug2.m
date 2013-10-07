@@ -118,7 +118,7 @@ function q_now = update_dist_orient(serPort, q_prev)
     tmp_t = AngleSensorRoomba(serPort);
     pause(WAIT_TIME);
     
-    q_now(3) = mod(q_prev(3) + tmp_t, pi);
+    q_now(3) = q_prev(3) + tmp_t;
     q_now(1) = q_prev(1) + tmp_dist*cos(q_now(3));
     q_now(2) = q_prev(2) + tmp_dist*sin(q_now(3));
 
@@ -240,14 +240,25 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
             m_line_reencounter = false;
             % To test the m-line, we need only see how far the y-coordinate
             % is from the y-origin.
-            if q_now(2) <= d_tol ...
-                    && distance(q_now, q_goal) < distance(q_now, q_last_hit) ...
-                    && ~points_match(q_now, q_last_hit)
-                m_line_reencounter = true;
+            if DEBUG
+                fprintf('\nWALL_FOLLOW_HANDLER:\t%s: %0.3g\n', 'q_now(y) = ', q_now(2));
+            end
+            if abs(q_now(2)) <= d_tol
+                d_goal = distance(q_now, q_goal);
+                d_last_hit = distance(q_now, q_last_hit);
                 if DEBUG
-                    fprintf('WALL_FOLLOW_HANDLER:\t%s\n', 'M-line re-encounter OK.');
+                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Intersected m-line.');
+                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s:\t\t%0.3g', 'Distance to goal:', d_goal);
+                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s:\t%0.3g', 'Distance to last hit:', d_last_hit);
                 end
-                break;
+
+                if (d_goal < d_last_hit) && ~points_match(q_now, q_last_hit)
+                    m_line_reencounter = true;
+                    if DEBUG
+                        fprintf('WALL_FOLLOW_HANDLER:\t%s\n', 'M-line re-encounter OK.');
+                    end
+                    break;
+                end
             else
                 if DEBUG
                     fprintf('WALL_FOLLOW_HANDLER:\t%s\n', 'M-line not encountered.');
@@ -260,6 +271,8 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
 end
 
 function follow_wall(serPort, fwd_vel, ang_vel, R, L, F, wall)
+    global WAIT_TIME;
+    
     % Angle Velocity for different bumps
     av_bumpright =  4 * ang_vel;
     av_bumpleft  =  2 * ang_vel;
@@ -275,7 +288,7 @@ function follow_wall(serPort, fwd_vel, ang_vel, R, L, F, wall)
     end
 
     if R
-    av = av_bumpright;                      % Set Angular Velocity to av_bumpright
+        av = av_bumpright;                  % Set Angular Velocity to av_bumpright
     elseif L
         av = av_bumpleft;                   % Set Angular Velocity to av_bumpleft
     elseif F
@@ -285,6 +298,7 @@ function follow_wall(serPort, fwd_vel, ang_vel, R, L, F, wall)
     else
         av = 0;                             % Set Angular Velocity to 0
     end
+
     SetFwdVelAngVelCreate(serPort, v, av );
 end
 
