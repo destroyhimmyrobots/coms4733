@@ -129,7 +129,7 @@ function d = distance(p1, p2)
     global DEBUG;
     x = 1;
     y = 2;
-    d = sqrt ( (p2(x) - p1(x))^2 + (p2(y) - p2(y))^2 );
+    d = sqrt ( (p2(x) - p1(x))^2 + (p2(y) - p1(y))^2 );
     
     if DEBUG
         fprintf('DISTANCE:\t%0.3g\n', d);
