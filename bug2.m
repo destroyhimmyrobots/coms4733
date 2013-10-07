@@ -1,16 +1,13 @@
 function [end_x, end_y, end_t] = bug2(serPort)
     clc;
     
-    global WAIT_TIME;
-    WAIT_TIME = 0.1;
-    global DEBUG;
-    DEBUG = true;
+    global WAIT_TIME; WAIT_TIME = 0.050;
+    global DEBUG;     DEBUG = true;
     
     % Movement variables
     max_v = 0.5;
-    v = 0.2;
+    v = 0.25;
     w = v2w(v);
-    travel_dist = 0.2; % meters
     
     % Loop control & vector indices
     finished = false;
@@ -18,15 +15,13 @@ function [end_x, end_y, end_t] = bug2(serPort)
     qhp_index = 0;
     q_index = 1;
     
-    % Define a point 10 meters away on the x-axist
-    global q_goal;
-    q_goal = [10, 0, 0.0];
+    % Define a point 10 meters away on the x-axis
+    global q_goal; q_goal = [10, 0, 0.0];
     
     % Define points along the m-line so as to search throught them.
     m_line_x = (-10:1/300:10)';
     m_line_y = m_line_x;
-    global m_line;
-    m_line   = [m_line_x, m_line_y zeros(length(m_line_x), 1)];
+    global m_line; m_line = [m_line_x, m_line_y zeros(length(m_line_x), 1)];
     
     % Define a vector of positions updated each time the robot moves.
     % This can, at the end, be used for the EXTRA CREDIT :3
@@ -44,6 +39,7 @@ function [end_x, end_y, end_t] = bug2(serPort)
         
         % Begin moving along the m-line
         SetFwdVelAngVelCreate(serPort, v, 0);
+        pause(WAIT_TIME);
         
         % Update present distance
         q_now = update_dist_orient(serPort, q_past(q_index,:));
@@ -56,20 +52,20 @@ function [end_x, end_y, end_t] = bug2(serPort)
         % After moving, assess the current state
         if points_match(q_now, q_goal)
             if DEBUG
-                fprintf('BUG2:\t\t%s\n', 'Point matched goal.');
+                fprintf('\nBUG2:\t\t%s\n', 'Point matched goal.');
             end
             finished = true;
             unreachable = false;
     
         elseif bumped
             if DEBUG
-                fprintf('BUG2:\t\t%s\n', 'Hit the wall.');
+                fprintf('\nBUG2:\t\t%s\n', 'Hit the wall.');
             end
             qhp_index = qhp_index + 1;
             q_hit_points(qhp_index,:) = q_now;
             
             % Follow wall subject to Bug2 consraints.
-            % NOTE: until_points must compensate for overshooting the m_line.
+            % NOTE: must compensate for overshooting the m_line.
             [new_pos, finished, unreachable] = ...
                 wall_follow_handler(serPort, q_now, q_hit_points(qhp_index,:));
 
@@ -95,11 +91,13 @@ function [end_x, end_y, end_t] = bug2(serPort)
     % Turn to original orientation?
     
     if finished
-        fprintf('%s\n', 'Reached goal!');
-    elseif unreachable
-        fprintf('Warning: %s\n', 'Goal is unreachable.');
+        fprintf('\nBUG2:\t%s\n', 'Finished.');
+    end
+    
+    if unreachable
+        fprintf('\nBUG2:\t%s\n', 'Goal is unreachable.');
     else
-        fprintf('Error: %s\n', 'Loop exited prematurely.');
+        fprintf('\nError: %s\n', 'Main loop exited prematurely.');
     end
     
     end_x = q_now(1);
@@ -122,13 +120,42 @@ function q_now = update_dist_orient(serPort, q_prev)
     q_now(3) = q_prev(3) + tmp_t;
     
     if DEBUG
-        fprintf('UPDATE_DIST_ORIENT:\t[x: %0.3g, y:%0.3g, t:%0.3g]\n', q_now(1), q_now(2), q_now(3));
+        fprintf('UPDATE_DIST_ORIENT:\t[ x: %0.3g , y:%0.3g , t:%0.3g ]\n', q_now(1), q_now(2), q_now(3));
+    end
+end
+
+function d = distance(p1, p2)
+    global DEBUG;
+    x = 1;
+    y = 2;
+    d = sqrt ( (p2(x) - p1(x))^2 + (p2(y) - p1(y))^2 );
+    
+    if DEBUG
+        fprintf('DISTANCE:\t%0.3g\n', d);
+    end    
+end
+
+function match = points_match(p1, p2)
+    global DEBUG;
+    
+    tol = 0.1;
+    d = distance(p1, p2);
+    
+    if DEBUG
+        fprintf('POINTS_MATCH:\tTesting [ %0.3g , %0.3g ]\t[ %0.3g , %0.3g ]\n', p1(1), p1(2), p2(1), p2(2));
+    end
+    
+    if (d <= tol)
+        match = true;
+    else
+        match = false;
     end
 end
 
 function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
         q_now, q_last_hit)
 
+    global DEBUG;
     global q_goal;
     global m_line;
     
@@ -139,10 +166,16 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
     while (true)
         % Check if we have reached the goal before continuing to follow.
         if points_match(q_now, q_goal)
+            if DEBUG
+                fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Point matched goal.');
+            end
             finished = true;
             break;
 
         elseif points_match(q_now, q_last_hit)
+            if DEBUG
+                fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Point matched last hit.');
+            end            
             finished = true;
             unreachable = true;
             break;
@@ -160,6 +193,9 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
                 end
             end
             if satisfactory_m_line_encounter
+                if DEBUG
+                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'M-line re-encounter OK.');
+                end
                 break;
             end
         end
@@ -262,34 +298,6 @@ function [yn, R, L, F] = bump_check(serPort)
 
     if R || L || F
         yn = true; end
-end
-
-function match = points_match(p1, p2)
-    global DEBUG;
-    
-    tol = 0.1;
-    d = distance(p1, p2);
-    
-    if DEBUG
-        fprintf('POINTS_MATCH:\tTesting [%0.3g, %0.3g]\t[%0.3g, %0.3g]', p1(1), p1(2), p2(1), p2(2));
-    end
-    
-    if (d <= tol)
-        match = true;
-    else
-        match = false;
-    end
-end
-
-function d = distance(p1, p2)
-    global DEBUG;
-    x = 1;
-    y = 2;
-    d = sqrt ( (p2(x) - p1(x))^2 + (p2(y) - p1(y))^2 );
-    
-    if DEBUG
-        fprintf('DISTANCE:\t[%0.3g, %0.3g]\n', d);
-    end    
 end
 
 function w = v2w(v)
