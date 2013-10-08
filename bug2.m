@@ -81,8 +81,9 @@ function [end_x, end_y, end_t] = bug2(serPort)
             %Convert rad->deg for turnAngle
             %Why must we add 45 deg? This could change if wall is not
             %straight.
-            turnAngle(serPort, 0.2, 45+(-convert2deg(new_pos(3))) );
+            turnAngle(serPort, 0.2, -convert2deg(new_pos(3)) + 45 );
             new_pos = update_dist_orient(serPort, new_pos);
+            q_now   = new_pos;
         end
         
         if finished
@@ -238,6 +239,7 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
                 fprintf('\nWALL_FOLLOW_HANDLER:\n%s\n', 'Point matched goal.');
             end
             finished = true;
+            unreachable = false;
             break;
         elseif (norm(hit_now(1:2), 2) > 1) % Hack to ensure we move before checking q_hit
             
@@ -257,19 +259,18 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
                     fprintf('\nWALL_FOLLOW_HANDLER:\n%s: %0.3g\n', 'q_now(y) = ', q_now(2));
                 end
                 if abs(q_now(2)) <= d_tol
-                    d_goal = distance(q_now, q_goal);
-                    % The algorithm states from the hit-point to the m-line,
-                    % which doesn't make sense. do hit point to goal instead.
-                    % d_last_hit = distance(q_now, q_last_hit);
+                    d_goal     = distance(q_now, q_goal);
                     d_last_hit = distance(q_last_hit, q_goal);
                     if DEBUG
                         fprintf('\nWALL_FOLLOW_HANDLER:\n%s\n', 'Intersected m-line.');
-                        fprintf('\nWALL_FOLLOW_HANDLER:\n%s:\t\t%0.3g', 'Distance to goal', d_goal);
-                        fprintf('\nWALL_FOLLOW_HANDLER:\n%s:\t%0.3g', 'Distance to last hit', d_last_hit);
+                        fprintf('WALL_FOLLOW_HANDLER:\n%s:\t\t%0.3g\n', 'Distance to goal', d_goal);
+                        fprintf('WALL_FOLLOW_HANDLER:\n%s:\t%0.3g\n', 'Distance to last hit', d_last_hit);
                     end
                     
                     if (d_goal < d_last_hit) && ~points_match(q_now, q_last_hit)
                         m_line_reencounter = true;
+                        finished = false;
+                        unreachable = false;
                         if DEBUG
                             fprintf('WALL_FOLLOW_HANDLER:\n%s\n', 'M-line re-encounter OK.');
                         end
