@@ -87,7 +87,7 @@ function [end_x, end_y, end_t] = bug2(serPort)
             
             % Set theta = 0 because turnAngle does not update the angle
             % sensor.
-            q_now   = new_pos; q_now(3) = 0;
+            q_now   = new_pos; q_now(3) = 0; q_now(2) = 0;
         end
         
         if finished
