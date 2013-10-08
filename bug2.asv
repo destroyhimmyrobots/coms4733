@@ -129,13 +129,12 @@ end
 function q_now = update_dist_orient(serPort, q_prev)    
     global DEBUG;
     global WAIT_TIME;
-    global angle;
     
     % Update current position & orientation
     tmp_dist = DistanceSensorRoomba(serPort);
     pause(WAIT_TIME);
     tmp_t = AngleSensorRoomba(serPort);
-    angle = angle + tmp_t;
+    angle = angle + temp_t;
     pause(WAIT_TIME);
     
     q_now(3) = q_prev(3) + tmp_t;
@@ -143,7 +142,7 @@ function q_now = update_dist_orient(serPort, q_prev)
     q_now(2) = q_prev(2) + tmp_dist*sin(q_now(3));
 
     if DEBUG
-        fprintf('UPDATE_DIST_ORIENT:\t[x:%0.3g , y:%0.3g , t:%0.3g]\t angle:%0.3g\n', q_now(1), q_now(2), q_now(3), angle);
+        fprintf('UPDATE_DIST_ORIENT:\t[x:%0.3g , y:%0.3g , t:%0.3g]\t angle:%0.3g\n', q_now(1), q_now(2), q_now(3), tmp_t);
         
     end
 end
