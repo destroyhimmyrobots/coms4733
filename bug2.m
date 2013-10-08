@@ -83,7 +83,10 @@ function [end_x, end_y, end_t] = bug2(serPort)
             %straight.
             turnAngle(serPort, 0.2, -convert2deg(new_pos(3)) + 45 );
             new_pos = update_dist_orient(serPort, new_pos);
-            q_now   = new_pos;
+            
+            % Set theta = 0 because turnAngle does not update the angle
+            % sensor.
+            q_now   = new_pos; q_now(3) = 0;
         end
         
         if finished
