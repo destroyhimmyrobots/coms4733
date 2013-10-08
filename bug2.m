@@ -246,7 +246,7 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
             break;
         elseif (norm(hit_now(1:2), 2) > 1) % Hack to ensure we move before checking q_hit
             
-            if points_match(q_now, q_last_hit)
+            if q_now(1) >= q_goal(1)
                 if DEBUG
                     fprintf('\nWALL_FOLLOW_HANDLER:\n%s\n', 'Point matched last hit.');
                 end
