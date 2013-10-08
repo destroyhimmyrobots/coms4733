@@ -53,7 +53,7 @@ function [end_x, end_y, end_t] = bug2(serPort)
         [bumped, ~, ~, ~] = bump_check(serPort);
         
         % After moving, assess the current state
-        if points_match(q_now, q_goal)
+        if q_now(q) >= q_goal(1)
             if DEBUG
                 fprintf('\nBUG2:\n\t%s\n', 'Point matched goal.');
             end
