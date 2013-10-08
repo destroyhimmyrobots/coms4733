@@ -16,8 +16,9 @@ function [end_x, end_y, end_t] = bug2(serPort)
     q_index = 1;
     
     % Define a point 10 meters away on the x-axis
-    global q_goal; q_goal = [10, 0, 0.0];
-    global d_tol;  d_tol  = 0.1;
+    goal_dist = 10;
+    global q_goal; q_goal = [goal_dist, 0, 0.0];
+    global d_tol;  d_tol  = 0.15;
     global a_tol;  a_tol  = 0.0001;
     
     % Define points along the m-line so as to search throught them.
@@ -49,7 +50,6 @@ function [end_x, end_y, end_t] = bug2(serPort)
         % Read sensors and check for bumps
         % Read wall Sensor
         [bumped, ~, ~, ~] = bump_check(serPort);
-        % wall = WallSensorReadRoomba(SerPort);
         
         % After moving, assess the current state
         if points_match(q_now, q_goal)
@@ -81,12 +81,14 @@ function [end_x, end_y, end_t] = bug2(serPort)
             %Convert rad->deg for turnAngle
             %Why must we add 45 deg? This could change if wall is not
             %straight.
+            
+            % ---> According to Piazza, this is a bug in the turnangle function.
             turnAngle(serPort, 0.2, -convert2deg(new_pos(3)) + 45 );
             new_pos = update_dist_orient(serPort, new_pos);
             
             % Set theta = 0 because turnAngle does not update the angle
             % sensor.
-            q_now   = new_pos; q_now(3) = 0;
+            q_now   = new_pos; q_now(2) = 0; q_now(3) = 0;
         end
         
         if finished
@@ -196,21 +198,6 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
         [~, R, L, F] = bump_check(serPort);
         wall         = WallSensorReadRoomba(serPort);
 
-        % Update local distance values
-        if DEBUG
-            fprintf('\nWALL_FOLLOW_HANDLER:\nHIT_NOW:\t');
-        end
-        hit_now      = update_dist_orient(serPort, hit_prev);
-        hit_dist     = distance(hit_now, hit_prev);
-        hit_prev     = hit_now;
-
-        % Update global distance values
-        if DEBUG
-            fprintf('\nWALL_FOLLOW_HANDLER:\nQ_NOW:\t\t');
-        end
-        q_now  = update_dist_orient(serPort, q_prev);
-        q_prev = q_now;
-
         switch status
             case 2 % Wall Follow | Haven't left the threshold of the hit point
                 fprintf('WALL_FOLLOW_HANDER:\nCase 2\n');
@@ -233,6 +220,21 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
                     status = 2;
                 end
         end
+        
+        % Update local distance values
+        if DEBUG
+            fprintf('\nWALL_FOLLOW_HANDLER:\nHIT_NOW:\t');
+        end
+        hit_now      = update_dist_orient(serPort, hit_prev);
+        hit_dist     = distance(hit_now, hit_prev);
+        hit_prev     = hit_now;
+
+        % Update global distance values
+        if DEBUG
+            fprintf('\nWALL_FOLLOW_HANDLER:\nQ_NOW:\t\t');
+        end
+        q_now  = update_dist_orient(serPort, q_prev);
+        q_prev = q_now;
 
         % --------------------------------------------------------------
         % Check if we have reached the goal before continuing to follow.
@@ -278,12 +280,13 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
                             fprintf('WALL_FOLLOW_HANDLER:\n%s\n', 'M-line re-encounter OK.');
                         end
                         break;
-                    end
-                else
-                    if DEBUG
-                        fprintf('WALL_FOLLOW_HANDLER:\t%s\n', 'M-line not encountered.');
+                    else
+                        if DEBUG
+                            fprintf('WALL_FOLLOW_HANDLER:\t%s\n', 'M-line not encountered.');
+                        end
                     end
                 end
+                
             end
         end
         fprintf('\n');
@@ -325,9 +328,10 @@ function follow_wall(serPort, fwd_vel, ang_vel, R, L, F, wall)
 end
 
 function [yn, R, L, F] = bump_check(serPort)
+    global WAIT_TIME;
     yn = false;
     [R, L, ~,~,~, F] = BumpsWheelDropsSensorsRoomba(serPort);
-    
+    pause(WAIT_TIME);
     if isnan(R) 
         R = 0; end
     if isnan(L) 
