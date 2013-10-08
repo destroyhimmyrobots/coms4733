@@ -18,7 +18,7 @@ function [end_x, end_y, end_t] = bug2(serPort)
     % Define a point 10 meters away on the x-axis
     global q_goal; q_goal = [10, 0, 0.0];
     global d_tol;  d_tol  = 0.1;
-    global a_tol;  a_tol  = 0.1;
+    global a_tol;  a_tol  = 0.0001;
     
     % Define points along the m-line so as to search throught them.
     m_line_x = (-10: d_tol / 2 :10)';
@@ -54,14 +54,14 @@ function [end_x, end_y, end_t] = bug2(serPort)
         % After moving, assess the current state
         if points_match(q_now, q_goal)
             if DEBUG
-                fprintf('\nBUG2:\t\t%s\n', 'Point matched goal.');
+                fprintf('\nBUG2:\n\t%s\n', 'Point matched goal.');
             end
             finished = true;
             unreachable = false;
     
         elseif bumped
             if DEBUG
-                fprintf('\nBUG2:\t\t%s\n', 'Hit the wall.');
+                fprintf('\nBUG2:\n\t%s\n', 'Hit the wall.');
             end
             qhp_index = qhp_index + 1;
             q_hit_points(qhp_index,:) = q_now;
@@ -71,17 +71,18 @@ function [end_x, end_y, end_t] = bug2(serPort)
             [new_pos, finished, unreachable] = ...
                 wall_follow_handler(serPort, q_now, q_hit_points(qhp_index,:));
             
-            % Turn the robot back along the m-line
-            q_now = new_pos;
-            while abs(mod(q_now(3), 360) > a_tol
-                turnAngle(serPort, 0.2, 10);
-                pause(WAIT_TIME);
-                q_now = update_dist_orient(serPort, q_now);
-                if DEBUG
-                    fprintf('BUG2:\t%s:\t%0.3g', 'Reorienting to y = 0. Angle:', q_now(3));
-                end
+            % Turn the robot back along the m-line (pi/2)
+            if DEBUG
+                fprintf('\n');
+                fprintf('BUG2:\n%s:\t[%0.3g , %0.3g, %0.3g]\n', ...
+                    'Position after follow:', new_pos(1), new_pos(2), new_pos(3));
             end
-
+            
+            %Convert rad->deg for turnAngle
+            %Why must we add 45 deg? This could change if wall is not
+            %straight.
+            turnAngle(serPort, 0.2, 45+(-convert2deg(new_pos(3))) );
+            new_pos = update_dist_orient(serPort, new_pos);
         end
         
         if finished
@@ -95,6 +96,7 @@ function [end_x, end_y, end_t] = bug2(serPort)
         % !!!!!!!!!!!!!!
         
         q_index = q_index + 1;
+        fprintf('\n');
     end
     
     % Stop the robot.
@@ -134,7 +136,7 @@ function q_now = update_dist_orient(serPort, q_prev)
     q_now(2) = q_prev(2) + tmp_dist*sin(q_now(3));
 
     if DEBUG
-        fprintf('UPDATE_DIST_ORIENT:\t[ x: %0.3g , y:%0.3g , t:%0.3g ]\n', q_now(1), q_now(2), q_now(3));
+        fprintf('UPDATE_DIST_ORIENT:\t[x:%0.3g , y:%0.3g , t:%0.3g]\n', q_now(1), q_now(2), q_now(3));
     end
 end
 
@@ -192,7 +194,7 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
 
         % Update local distance values
         if DEBUG
-            fprintf('\nWALL_FOLLOW_HANDLER:\tHIT_NOW:\t');
+            fprintf('\nWALL_FOLLOW_HANDLER:\nHIT_NOW:\t');
         end
         hit_now      = update_dist_orient(serPort, hit_prev);
         hit_dist     = distance(hit_now, hit_prev);
@@ -200,26 +202,26 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
 
         % Update global distance values
         if DEBUG
-            fprintf('\nWALL_FOLLOW_HANDLER:\tQ_NOW:\t\t');
+            fprintf('\nWALL_FOLLOW_HANDLER:\nQ_NOW:\t\t');
         end
         q_now  = update_dist_orient(serPort, q_prev);
         q_prev = q_now;
 
         switch status
             case 2 % Wall Follow | Haven't left the threshold of the hit point
-                fprintf('WALL_FOLLOW_HANDER:\t\tCase 2\n');
+                fprintf('WALL_FOLLOW_HANDER:\nCase 2\n');
                 follow_wall(serPort, v, w, R, L, F, wall);
                 if (norm(hit_now(1:2), 2) > dist_from_init_hit)
                     status = 3;
                 end
             case 3 % Wall Follow | Left the threshold of the hit point
-                fprintf('WALL_FOLLOW_HANDER:\t\tCase 3\n');
+                fprintf('WALL_FOLLOW_HANDER:\nCase 3\n');
                 follow_wall(serPort, v, w, R, L, F, wall);
                 if(norm(hit_now(1:2), 2) < dist_from_init_hit)
                     status = 4;
                 end
             case 4 % Go Back to Start Position
-                fprintf('WALL_FOLLOW_HANDER:\t\tCase 4\n');
+                fprintf('WALL_FOLLOW_HANDER:\nCase 4\n');
                 turnAngle(serPort, w, hit_now(3));
                 hit_now(3) = mod(hit_now(3), pi) + pi;
                 if (pi * 0.9 < hit_now(3)) && (hit_now(3) < pi * 1.1)
@@ -233,7 +235,7 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
         % --------------------------------------------------------------
         if points_match(q_now, q_goal)
             if DEBUG
-                fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Point matched goal.');
+                fprintf('\nWALL_FOLLOW_HANDLER:\n%s\n', 'Point matched goal.');
             end
             finished = true;
             break;
@@ -241,7 +243,7 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
             
             if points_match(q_now, q_last_hit)
                 if DEBUG
-                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Point matched last hit.');
+                    fprintf('\nWALL_FOLLOW_HANDLER:\n%s\n', 'Point matched last hit.');
                 end
                 finished = true;
                 unreachable = true;
@@ -252,7 +254,7 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
                 % To test the m-line, we need only see how far the y-coordinate
                 % is from the y-origin.
                 if DEBUG
-                    fprintf('\nWALL_FOLLOW_HANDLER:\t%s: %0.3g\n', 'q_now(y) = ', q_now(2));
+                    fprintf('\nWALL_FOLLOW_HANDLER:\n%s: %0.3g\n', 'q_now(y) = ', q_now(2));
                 end
                 if abs(q_now(2)) <= d_tol
                     d_goal = distance(q_now, q_goal);
@@ -261,15 +263,15 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
                     % d_last_hit = distance(q_now, q_last_hit);
                     d_last_hit = distance(q_last_hit, q_goal);
                     if DEBUG
-                        fprintf('\nWALL_FOLLOW_HANDLER:\t%s\n', 'Intersected m-line.');
-                        fprintf('\nWALL_FOLLOW_HANDLER:\t%s:\t\t%0.3g', 'Distance to goal', d_goal);
-                        fprintf('\nWALL_FOLLOW_HANDLER:\t%s:\t%0.3g', 'Distance to last hit', d_last_hit);
+                        fprintf('\nWALL_FOLLOW_HANDLER:\n%s\n', 'Intersected m-line.');
+                        fprintf('\nWALL_FOLLOW_HANDLER:\n%s:\t\t%0.3g', 'Distance to goal', d_goal);
+                        fprintf('\nWALL_FOLLOW_HANDLER:\n%s:\t%0.3g', 'Distance to last hit', d_last_hit);
                     end
                     
                     if (d_goal < d_last_hit) && ~points_match(q_now, q_last_hit)
                         m_line_reencounter = true;
                         if DEBUG
-                            fprintf('WALL_FOLLOW_HANDLER:\t%s\n', 'M-line re-encounter OK.');
+                            fprintf('WALL_FOLLOW_HANDLER:\n%s\n', 'M-line re-encounter OK.');
                         end
                         break;
                     end
@@ -280,6 +282,7 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
                 end
             end
         end
+        fprintf('\n');
     end
     
     new_pos = q_now;
