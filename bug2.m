@@ -120,6 +120,10 @@ function [end_x, end_y, end_t] = bug2(serPort)
     else
         fprintf('\nError: %s\n', 'Main loop exited prematurely.');
     end
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % GO GO EXTRA CREDIT GOGOGOGOGOGOGOGOGOGO
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    draw_path(q_prev, q_now, q_hit_points);
     
     end_x = q_now(1);
     end_y = q_now(2);
@@ -127,6 +131,22 @@ function [end_x, end_y, end_t] = bug2(serPort)
     
     % Map robot's path for extra credit
     
+end
+
+function draw_path(prev, now, hits)
+    figure(1);
+    hold on;
+    xlabel('Robot X coordinate');
+    ylabel('Robot Y coordinate');
+
+    plot(prev(:,1), prev(:2), 'b.');
+    plot(now(:,1), now(:,2), 'gs');
+    plot(hits(:,1), hits(:,2), 'ro');
+    
+    composite = [prev; now; hits];
+    plot(composite(:,1), composite(:,2), 'k-');
+    legend('Followed points'; 'Finishing point'; 'Collision points');
+    hold off;
 end
 
 function q_now = update_dist_orient(serPort, q_prev)    
