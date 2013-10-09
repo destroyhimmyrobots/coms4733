@@ -28,7 +28,7 @@ function [end_x, end_y, end_t] = bug2(serPort)
     global m_line; m_line = [m_line_x, m_line_y zeros(length(m_line_x), 1)];
     
     % Define a vector of positions updated each time the robot moves.
-    % This can, at the end, be used for the EXTRA CREDIT :3
+    % This can, at the end, be used for the EXTRA CREDIT 
     q_past = zeros(100,3);
     q_now  = zeros(1,3);
     
@@ -72,7 +72,7 @@ function [end_x, end_y, end_t] = bug2(serPort)
             [new_pos, q_past, finished, unreachable] = ...
                 wall_follow_handler(serPort, q_now, q_past, q_hit_points(qhp_index,:));
             
-            qhp_index = length(q_past) + 1;
+            q_index = length(q_past);
             
             % Turn the robot back along the m-line (pi/2)
             if DEBUG
@@ -100,7 +100,7 @@ function [end_x, end_y, end_t] = bug2(serPort)
         elseif unreachable
             break;
         end
-        
+
         q_index = q_index + 1;
         fprintf('\n');
     end
@@ -207,7 +207,7 @@ function [new_pos, q_prev, finished, unreachable] = wall_follow_handler(serPort,
     
     hit_now  = zeros(1,3);
     hit_prev = zeros(1,3);
-    qhp_index = length(q_prev);
+    q_prev_idx = length(q_prev);
     
     dist_from_init_hit = 0.2;
 
@@ -216,7 +216,6 @@ function [new_pos, q_prev, finished, unreachable] = wall_follow_handler(serPort,
     status = 2;
 
     while (true)      
-        qhp_index = qhp_index + 1;
         [~, R, L, F] = bump_check(serPort);
         wall         = WallSensorReadRoomba(serPort);
 
@@ -256,19 +255,20 @@ function [new_pos, q_prev, finished, unreachable] = wall_follow_handler(serPort,
             fprintf('\nWALL_FOLLOW_HANDLER:\nQ_NOW:\t\t');
         end
         if going_straight
-            if q_prev(3) >= 0
-                q_prev(3) = (floor(q_prev(3) * 10) / 10.0);% Set Angular Velocity to 0
+            if q_prev(q_prev_idx,3) >= 0
+                q_prev(q_prev_idx,3) = (floor(q_prev(q_prev_idx,3) * 10) / 10.0);% Set Angular Velocity to 0
             else
-                q_prev(3) = (ceil(q_prev(3) * 10) / 10.0);% Set Angular Velocity to 0
+                q_prev(q_prev_idx,3) = (ceil(q_prev(q_prev_idx,3) * 10) / 10.0);% Set Angular Velocity to 0
             end
         end
-        q_now  = update_dist_orient(serPort, q_prev);
-        q_prev(qhp_index,:) = q_now;
+        q_now  = update_dist_orient(serPort, q_prev(q_prev_idx,:));
+        q_prev_idx = q_prev_idx + 1;
+        q_prev(q_prev_idx,:) = q_now;
 
         % --------------------------------------------------------------
         % Check if we have reached the goal before continuing to follow.
         % --------------------------------------------------------------
-        if points_match(q_now, q_goal)
+        if q_now(1) >= q_goal(1)
             if DEBUG
                 fprintf('\nWALL_FOLLOW_HANDLER:\n%s\n', 'Point matched goal.');
             end
@@ -277,7 +277,7 @@ function [new_pos, q_prev, finished, unreachable] = wall_follow_handler(serPort,
             break;
         elseif (norm(hit_now(1:2), 2) > 1) % Hack to ensure we move before checking q_hit
             
-            if q_now(1) >= q_goal(1)
+            if points_match(q_now, q_last_hit)
                 if DEBUG
                     fprintf('\nWALL_FOLLOW_HANDLER:\n%s\n', 'Point matched last hit.');
                 end
