@@ -18,7 +18,7 @@ function [end_x, end_y, end_t] = bug2(serPort)
     % Define a point 10 meters away on the x-axis
     goal_dist = 10;
     global q_goal; q_goal = [goal_dist, 0, 0.0];
-    global d_tol;  d_tol  = 0.15;
+    global d_tol;  d_tol  = 0.09;
     global a_tol;  a_tol  = 0.0001;
     global angle; angle = 0;
     
