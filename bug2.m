@@ -159,6 +159,7 @@ function q_now = update_dist_orient(serPort, q_prev)
     pause(WAIT_TIME);
     tmp_t = AngleSensorRoomba(serPort);
     angle = angle + tmp_t;
+    
     pause(WAIT_TIME);
     
     q_now(3) = q_prev(3) + tmp_t;
@@ -226,13 +227,13 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
         switch status
             case 2 % Wall Follow | Haven't left the threshold of the hit point
                 fprintf('WALL_FOLLOW_HANDER:\nCase 2\n');
-                follow_wall(serPort, v, w, R, L, F, wall);
+                going_straight = follow_wall(serPort, v, w, R, L, F, wall);
                 if (norm(hit_now(1:2), 2) > dist_from_init_hit)
                     status = 3;
                 end
             case 3 % Wall Follow | Left the threshold of the hit point
                 fprintf('WALL_FOLLOW_HANDER:\nCase 3\n');
-                follow_wall(serPort, v, w, R, L, F, wall);
+                going_straight = follow_wall(serPort, v, w, R, L, F, wall);
                 if(norm(hit_now(1:2), 2) < dist_from_init_hit)
                     status = 4;
                 end
@@ -257,6 +258,13 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
         % Update global distance values
         if DEBUG
             fprintf('\nWALL_FOLLOW_HANDLER:\nQ_NOW:\t\t');
+        end
+        if going_straight
+            if q_prev(3) >= 0
+                q_prev(3) = (floor(q_prev(3) * 10) / 10.0);% Set Angular Velocity to 0
+            else
+                q_prev(3) = (ceil(q_prev(3) * 10) / 10.0);% Set Angular Velocity to 0
+            end
         end
         q_now  = update_dist_orient(serPort, q_prev);
         q_prev = q_now;
@@ -320,9 +328,11 @@ function [new_pos, finished, unreachable] = wall_follow_handler(serPort, ...
     new_pos = q_now;
 end
 
-function follow_wall(serPort, fwd_vel, ang_vel, R, L, F, wall)
+function going_straight = follow_wall(serPort, fwd_vel, ang_vel, R, L, F, wall)
     global WAIT_TIME;
+    global angle;
     
+    going_straight = 0;
     % Angle Velocity for different bumps
     av_bumpright =  4 * ang_vel;
     av_bumpleft  =  2 * ang_vel;
@@ -346,8 +356,16 @@ function follow_wall(serPort, fwd_vel, ang_vel, R, L, F, wall)
     elseif ~wall
         av = av_nowall;                     % Set Angular Velocity to av_nowall
     else
-        av = 0;                             % Set Angular Velocity to 0
+        av = 0; 
+        going_straight = 1;
+        %q_now(3) = (floor(q_now(3) * 20) / 20.0)
+        if angle >= 0
+            angle = (floor(angle * 10) / 10.0);% Set Angular Velocity to 0
+        else
+            angle = (ceil(angle * 10) / 10.0);% Set Angular Velocity to 0
+        end
     end
+    
 
     SetFwdVelAngVelCreate(serPort, v, av );
 end
