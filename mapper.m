@@ -1,5 +1,5 @@
 function mapper(serPort)
-    RESOLUTION    = 3; % # segments in meter (1D)
+    RESOLUTION    = 5; % # segments in meter (1D)
     METERS_TO_MAP = 10;
     DIST_PER_SEGMENT = 1/RESOLUTION;
     
