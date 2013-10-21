@@ -1,4 +1,4 @@
-function mapper(serPort)
+function mapper2(serPort)
 
     %=============================================================%
     % Description                                                 %
@@ -26,8 +26,8 @@ function mapper(serPort)
     %=============================================================%
     % Variable Declaration                                        %
     %=============================================================%
-    RESOLUTION    = 5; % # segments in meter (1D)
-    METERS_TO_MAP = 7;
+    RESOLUTION    = 9; % # segments in meter (1D)
+    METERS_TO_MAP = 13;
     DIST_PER_SEGMENT = 1/RESOLUTION;
     START_SPIRAL_DIST = 5;
     SPIRAL_DIST = 5;
@@ -112,7 +112,7 @@ function mapper(serPort)
         current_pos_x = current_pos_x + sin(current_angle) * distance_temp;
         current_pos_y = current_pos_y + cos(current_angle) * distance_temp;
 
-
+        already_mapped = 0;
         x = round_to_nearest(DIST_PER_SEGMENT, current_pos_x);
         y = round_to_nearest(DIST_PER_SEGMENT, current_pos_y);
 
@@ -128,10 +128,14 @@ function mapper(serPort)
             x_offset = cos(pos(3) -  current_angle);
             y_offset = sin(pos(3) -  current_angle);
         end
-        fprintf('L: %d, R: %d, F: %d, x_offset: %d, y_offset: %d', BumpLeft, BumpRight, BumpFront, round(x_offset), round(y_offset));
-        map(initial_map_pos(2) - round(y*RESOLUTION) - round(y_offset), initial_map_pos(1)+round(x*RESOLUTION) + round(x_offset)) = 1;
-        figure(3), imagesc(map);
-        
+        if (BumpRight || BumpLeft || BumpFront || (status==2) || (status==3))
+            fprintf('L: %d, R: %d, F: %d, x_offset: %d, y_offset: %d', BumpLeft, BumpRight, BumpFront, round(x_offset), round(y_offset));
+            if (map(initial_map_pos(2) - round(y*RESOLUTION) - round(y_offset), initial_map_pos(1)+round(x*RESOLUTION) + round(x_offset))) 
+                already_mapped = 1;
+            end
+            map(initial_map_pos(2) - round(y*RESOLUTION) - round(y_offset), initial_map_pos(1)+round(x*RESOLUTION) + round(x_offset)) = 1;
+            figure(3), imagesc(map);
+        end
         
         % Keep tracking the position and angle after the first hit
         first_hit_angle = first_hit_angle + angle_temp;
@@ -153,42 +157,44 @@ function mapper(serPort)
         %=============================================================%
         % Step 4 - Check Status                                       %
         %=============================================================%
+        spiraling = 0;
         switch status
             case 1 % Move Forward
                 display('Moving Forward');
-                SetFwdVelAngVelCreate(serPort, velocity_val, 0 );
                 if (BumpRight || BumpLeft || BumpFront)
-                    status = 2; % Change Status to Wall Follow
+                    if ~already_mapped
+                        status = 2; % Change Status to Wall Follow
+                        spiraling = 0;
+                    else
+                        spiraling = 1;
+                    end
                     first_hit_angle = 0;
                     first_hit_pos_x = 0;
                     first_hit_pos_y = 0;                    
                 end
+                r = rand*3;
+                SetFwdVelAngVelCreate(serPort, velocity_val, r*spiraling);
             case 2 % Wall Follow | Haven't left the threshold of the hit point
+                display('#2');
                 WallFollow(velocity_val, angular_velocity_val, BumpRight, BumpLeft, BumpFront, Wall, serPort);
                 if (hit_distance > dist_from_first_hit_point)
                     status = 3;
                 end
             case 3 % Wall Follow | Left the threshold of the hit point
+                display('#3');
                 WallFollow(velocity_val, angular_velocity_val, BumpRight, BumpLeft, BumpFront, Wall, serPort);
                 if(hit_distance < dist_from_first_hit_point)
                    status = 4; 
                 end
-            case 4 % Go Back to Start Position                
-                turnAngle(serPort, angular_velocity_val, current_angle);
-                current_angle = mod(current_angle, pi) + pi;
-                if (pi * 0.9 < current_angle) && (current_angle < pi * 1.1)
-                    SetFwdVelAngVelCreate(serPort, velocity_val, 0 );
-                    status = 5;
+            case 4 % Go Back to Start Position 
+                display('#4');
+                r = rand;
+                if r <= 0.5
+                    SetFwdVelAngVelCreate(serPort, velocity_val, r*3);
+                elseif r > 0.7
+                    SetFwdVelAngVelCreate(serPort, velocity_val, -r*3);
                 end
-            case 5 % Stop and Orient at Start Position
-                if start_distance < dist_from_start_point
-                    fprintf('Robot stopped to start point\n');
-                    SetFwdVelAngVelCreate(serPort, 0, 0 );
-                    fprintf('Turning to initial orientation\n');
-                    turnAngle(serPort, angular_velocity_val, 180);
-                    fprintf('Robot returned to start position\n');
-                    return;
-                end
+                status = 1;
         end
     end
 end
@@ -225,58 +231,7 @@ function WallFollow(velocity_val, angular_velocity_val, BumpRight, BumpLeft, Bum
     SetFwdVelAngVelCreate(serPort, v, av );
 end
 
-function q_now = update_dist_orient(serPort, q_prev, turned_in_deg)    
-   
-    
-    % Update current position & orientation
-    tmp_dist = DistanceSensorRoomba(serPort);
-    %pause(WAIT_TIME);
-    
-    tmp_t= 0;
-    while abs(tmp_t) < (pi/180*turned_in_deg)
-        turnAngle(serPort, 0.4, turned_in_deg/4);
-        tmp_t= tmp_t+AngleSensorRoomba(serPort)
-        pause(0.1)
-    end
-    %tmp_t = AngleSensorRoomba(serPort);
-    
-   % pause(WAIT_TIME);
-    
-    q_now(3) = q_prev(3) + round_to_nearest(pi/4, tmp_t);
-    q_now(1) = q_prev(1) + tmp_dist*cos(q_now(3));
-    q_now(2) = q_prev(2) + tmp_dist*sin(q_now(3));
-    q_now
-  
-end
 
 function rounded = round_to_nearest(res, val)
     rounded = round(val / res) * res;
-end
-
-function [bumped, R, L, F] = bump_check(serPort)
-    bumped = false;
-    [R, L, ~,~,~, F] = BumpsWheelDropsSensorsRoomba(serPort);
-    
-    if isnan(R) 
-        R = 0;
-    end
-    if isnan(L) 
-        L = 0;
-    end
-    if isnan(F) 
-        F = 0;
-    end
-
-    if R || L || F
-        bumped = true;
-    end
-end
-
-function w = v2w(v)
-    % Robot constants
-    maxWheelVel = 0.5;   % Max linear velocity of each drive wheel (m/s)
-    robotRadius = 0.2;   % Radius of the robot (m)
-    
-    % Max velocity combinations obey rule v+wr <= v_max
-    w = (maxWheelVel-v)/robotRadius;
 end
