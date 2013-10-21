@@ -2,6 +2,8 @@ function mapper(serPort)
     RESOLUTION    = 5; % # segments in meter (1D)
     METERS_TO_MAP = 7;
     DIST_PER_SEGMENT = 1/RESOLUTION;
+    START_SPIRAL_DIST = 5;
+    SPIRAL_DIST = 5;
     
     WAIT_TIME = 0.033;
     v = 0.4;
@@ -18,16 +20,17 @@ function mapper(serPort)
     
     pos = [0 0 0];
     stuck = 0;
-    
+    dist = 0;
     while (true)
         stuck
         pause(WAIT_TIME);
         
         [any_bump, R, L, F] = bump_check(serPort);
 
-        if any_bump
+        if any_bump 
             stuck = stuck + 1;
             moving = 0;
+            SPIRAL_DIST = START_SPIRAL_DIST;
             % Mark this location as blocked
             pos = update_dist_orient(serPort, pos, 0);
            
@@ -51,9 +54,11 @@ function mapper(serPort)
                 y_offset = sin(pos(3) - bumper_angle);
             end
             fprintf('L: %d, R: %d, F: %d, x_offset: %d, y_offset: %d', L, R, F, round(x_offset), round(y_offset));
-            
             map(initial_map_pos(2) - round(y*RESOLUTION) - round(y_offset), initial_map_pos(1)+round(x*RESOLUTION) + round(x_offset)) = 1;
             figure(3), imagesc(map);
+        elseif dist > SPIRAL_DIST
+            moving = 0;
+            SPIRAL_DIST = SPIRAL_DIST + 5;
         else
             moving = 1;
         end
@@ -62,13 +67,33 @@ function mapper(serPort)
             % Just go
             stuck = 0;
             move_forward
+            dist = dist + 1
         else
             % Turn a direction repending on R/L/F
             to_turn = 0;
             ang_diff = 45
+             % Turn parallel to obstacle
+            %if R
+                % Push the robot against the wall lightly
+                %SetFwdVelAngVelCreate(serPort,v,w)  % Turn anticlockwise 30 deg
+                %to_turn= 45;  % Angle to turn
+            %elseif L
+                %SetFwdVelAngVelCreate(serPort,v,-w) % Turn clockwise
+                %to_turn= -45;
+            %elseif F
+                %SetFwdVelAngVelCreate(serPort,v,w)  % Turn counter-clockwise
+                %to_turn= -90;                          % Turn further
+            %end
+
+            % Wait for turn to complete
+            %angTurned= 0;
+            %while angTurned < to_turn
+                %angTurned= angTurned+abs(AngleSensorRoomba(serPort));
+                %pause(0.1)
+            %end
             if F
-                to_turn = 180-ang_diff;
-            elseif L
+                to_turn = ang_diff;
+            elseif (L || dist > SPIRAL_DIST)
                 to_turn = -ang_diff;
             else
                 to_turn = ang_diff;
@@ -82,6 +107,7 @@ function mapper(serPort)
             if stuck > 5
                 to_turn = 180;
             end
+            dist = 0;
             turnAngle(serPort, w, to_turn);
             pos = update_dist_orient(serPort, pos, to_turn);
             moving = 1;
@@ -99,7 +125,14 @@ function q_now = update_dist_orient(serPort, q_prev, turned_in_deg)
     % Update current position & orientation
     tmp_dist = DistanceSensorRoomba(serPort);
     %pause(WAIT_TIME);
-    tmp_t = AngleSensorRoomba(serPort);
+    
+    tmp_t= 0;
+    while abs(tmp_t) < (pi/180*turned_in_deg)
+        turnAngle(serPort, 0.4, turned_in_deg/4);
+        tmp_t= tmp_t+AngleSensorRoomba(serPort)
+        pause(0.1)
+    end
+    %tmp_t = AngleSensorRoomba(serPort);
     
    % pause(WAIT_TIME);
     
