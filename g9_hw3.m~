@@ -13,12 +13,17 @@ function g9_hw3(serPort)
     %=============================================================%
 
   
-    RESOLUTION    = 3; 
-    METERS_TO_MAP = 25;
+    RESOLUTION    = 3; % # segments in meter (1D)
+    METERS_TO_MAP = 20;
     DIST_PER_SEGMENT = 1/RESOLUTION;
-  
+    START_SPIRAL_DIST = 5;
+    SPIRAL_DIST = 5;
+    
+    secs_since_updated = 0;
+    rightnow = clock;
     before = clock;
     
+    WAIT_TIME = 0.033;
     v = 0.4;
     w = 0.4;
     
@@ -28,6 +33,12 @@ function g9_hw3(serPort)
     
     % start in the middle
     initial_map_pos = [ceil(width/2), ceil(width/2)];
+    
+    moving = 1;
+    
+    pos = [0 0 0];
+    stuck = 0;
+    dist = 0;
     
     % Current Position
     current_pos_x = 0;
@@ -111,13 +122,13 @@ function g9_hw3(serPort)
         end
         if (BumpRight || BumpLeft || BumpFront || (status==2) || (status==3))
             fprintf('L: %d, R: %d, F: %d, x_offset: %d, y_offset: %d', BumpLeft, BumpRight, BumpFront, round(x_offset), round(y_offset));
-            if (map(initial_map_pos(2) - round(x*RESOLUTION) - round(y_offset), initial_map_pos(1)+round(y*RESOLUTION) + round(x_offset)))
+            if (map(initial_map_pos(2) - round(x*RESOLUTION) - round(x_offset), initial_map_pos(1)+round(y*RESOLUTION) + round(y_offset)))
                 already_mapped = 1;
             else
                 before = clock;
             end
             
-            map(initial_map_pos(2) - round(x*RESOLUTION) - round(y_offset), initial_map_pos(1)+round(y*RESOLUTION) + round(x_offset)) = 1;
+            map(initial_map_pos(2) - round(x*RESOLUTION) - round(x_offset), initial_map_pos(1)+round(y*RESOLUTION) + round(y_offset)) = 1;
             figure(3), imagesc(map);
         end
         
