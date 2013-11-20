@@ -1,7 +1,9 @@
 function follow_points(serPort)
-    ismac    = false;
-    file = 'ruby_xy.txt';
-    
+    clc; format long;
+    ismac     = false;
+    file      = 'ruby_xy.txt';
+    simulator = true;
+
     if(~simulator)
         if(ismac)
             RoombaInit_mac(serPort);
@@ -11,37 +13,46 @@ function follow_points(serPort)
     end
 
     xy = parse_points(file);
-    pos = xy(1,:);
+    pos = [xy(1,:), 0];
 
     for i=2:length(xy)
-        printf('\n\nMoving to point %d\n', i);
-        pos = go_to_point(serPort, pos, xy(i));
-        printf('\n\nDone.\n\n');
+        fprintf('\n\nMoving to point %d\n', i);
+        pos = go_to_point(serPort, pos, xy(i,:));
+        fprintf('\n\nDone.\n\n');
     end
     
-    printf('Goal Reached.');
+    fprintf('Goal Reached.\n\n');
+    clear;
 end
 
-function [d, spd, tick, pos] = go_to_point(serPort, pos, next)
-    spd      = 0.36;
-    tick     = 0.1;
-    ticks    = 0;
-    d_sensor = 0;
+function pos = go_to_point(serPort, pos, next)
     d        = dist(pos, next);
-    
     % Create endpoint of vector of distance d straight ahead.
     % Create a vector from the current position to the new position
 
     % !!!!!!!!!!! FIX ME.
-    v1 = [next(1) - pos(1),  cos(pos(3))*pos(1)];
-    v2 = [next(1) - pos(1), next(2) - pos(2)];
+    x_ahead = next(1) / cos(pos(3)); 
+    y_ahead = x_ahead * sin(pos(3));
     
-    % Turn by the angle between those vectors
+    v1 = [x_ahead - pos(1), y_ahead - pos(2)];
+    v2 = [next(1) - pos(1), next(2) - pos(2)]; % Technically d should be ||v_2||
+    
+    % Get angle between those vectors
     t = vec_angle(v1, v2);
+    % Turn and advance
+    pos = advance(serPort, t, d, pos);
+end
 
-    AngleSensorReadRoomba();
+function pos = advance(serPort, t, d, pos)
+    spd      = 0.36;
+    tick     = 0.1;
+    ticks    = 0;
+    d_sensor = 0;
+    
+    % Turn
+    AngleSensorRoomba(serPort);
     turnAngle(serPort, 0.1, t);
-    update_pos(0, pos);
+    update_pos(0, AngleSensorRoomba(serPort), pos);
     
     % Advance by distance d
     SetFwdVelAngVelCreate(serPort, spd, 0);
@@ -49,10 +60,18 @@ function [d, spd, tick, pos] = go_to_point(serPort, pos, next)
         ticks    = ticks + 1;
         meters   = DistanceSensorRoomba(serPort);
         d_sensor = d_sensor + meters;
-        pos      = update_pos(meters, pos);
+        pos      = update_pos(meters, AngleSensorRoomba(serPort), pos);
         pause(tick);
     end
     SetFwdVelAngVelCreate(serPort, 0, 0);
+    
+    % Correct for any angular errors during motion
+    a = AngleSensorRoomba(serPort);
+    if(abs(a) > 1e-3)
+        fprintf('Correcting angle after displacement by %0.5g', -a);
+        turnAngle(serPort, 0.1, -a);
+        pos = update_pos(0, AngleSensorRoomba(serPort), pos);
+    end
     pos = correct(d, d_sensor, pos);
 end
 
@@ -64,13 +83,14 @@ function t = vec_angle(v1, v2)
     t  = acos(ct) * (180/pi);
 end
 
-function pos = update_pos(d, pos)
+function pos = update_pos(d, a, pos)
     pos(1) = pos(1) + cos(pos(3)) * d;
     pos(2) = pos(2) + sin(pos(3)) * d;
-    % !!!!!!!!!! FIX ME.
-    pos(3) = pos(3) + AngleSensorReadRoomba();
+    if(~isnan(a))
+        pos(3) = pos(3) + a;
+    end
 
-    printf('Measured position:\t x %0.5g |\t y %0.5g |\t t %0.5g\n', ...
+    fprintf('Measured position:\t x %0.5g |\t y %0.5g |\t t %0.5g\n', ...
         pos(1), pos(2), pos(3));
 end
 
@@ -78,17 +98,17 @@ function d = dist(now, later)
     d = sqrt((later(1)-now(1)).^2 + (later(2)-now(2)).^2);
 end
 
-function c = correct(d, d_sensor, pos)
+function pos = correct(d, d_sensor, pos)
     d_overshot = d_sensor - d;
     epsilon    = [d_overshot, d_overshot, 1];
     
-    c(1) = pos(1) + cos(pos(3))*epsilon(1);
-    c(2) = pos(2) + sin(pos(3))*epsilon(2);
+    pos(1) = pos(1) + cos(pos(3))*epsilon(1);
+    pos(2) = pos(2) + sin(pos(3))*epsilon(2);
     % !!!!!!!!!!! FIX ME: ANGULAR COMPENSATION
-    % c(3) = pos(3)+epsilon(3);
+    pos(3) = pos(3);
     
-    printf('Adjusted position:\t x %0.5g |\t y %0.5g |\t t %0.5g\n', ...
-        c(1), c(2), c(3));
+    fprintf('Adjusted position:\t x %0.5g |\t y %0.5g |\t t %0.5g\n', ...
+        pos(1), pos(2), pos(3));
 end
 
 function xy = parse_points(filename)
