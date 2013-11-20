@@ -44,7 +44,7 @@ function pos = go_to_point(serPort, pos, next)
 end
 
 function pos = advance(serPort, t, d, pos)
-    spd      = 0.36;
+    spd      = 0.4;
     tick     = 0.1;
     ticks    = 0;
     d_sensor = 0;
@@ -65,12 +65,19 @@ function pos = advance(serPort, t, d, pos)
     end
     SetFwdVelAngVelCreate(serPort, 0, 0);
     
+    % Perform an update after stopping to account for deceleratory d.
+    meters   = DistanceSensorRoomba(serPort);
+    d_sensor = d_sensor + meters;
+    pos      = update_pos(meters, AngleSensorRoomba(serPort), pos);
+    pause(tick);
+    
     % Correct for any angular errors during motion
     a = AngleSensorRoomba(serPort);
     if(abs(a) > 1e-3)
         fprintf('Correcting angle after displacement by %0.5g', -a);
         turnAngle(serPort, 0.1, -a);
         pos = update_pos(0, AngleSensorRoomba(serPort), pos);
+        pause(tick);
     end
     pos = correct(d, d_sensor, pos);
 end
@@ -81,6 +88,8 @@ function t = vec_angle(v1, v2)
     
     ct = dot(v1, v2) / (n1 .* n2);
     t  = acos(ct) * (180/pi);
+    
+    fprintf('Angle between current & next bearing:\t%0.5g', t);
 end
 
 function pos = update_pos(d, a, pos)
@@ -100,7 +109,7 @@ end
 
 function pos = correct(d, d_sensor, pos)
     d_overshot = d_sensor - d;
-    epsilon    = [d_overshot, d_overshot, 1];
+    epsilon    = [d_overshot, d_overshot, 1]; % x y t
     
     pos(1) = pos(1) + cos(pos(3))*epsilon(1);
     pos(2) = pos(2) + sin(pos(3))*epsilon(2);
