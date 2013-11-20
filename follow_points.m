@@ -1,4 +1,4 @@
-function follow_points(serPort, xy)
+function follow_points(serPort, ismac, xy)
     if(ismac)
         RoombaInit_mac(serPort);
     else
