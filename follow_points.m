@@ -47,6 +47,7 @@ function pos = go_to_point(serPort, pos, next)
     while(traveled <= d)
         meters = DistanceSensorRoomba(serPort);
         pos = update_pos(meters, pos);
+        pause(0.1);
     end
     SetFwdVelAngVelCreate(serPort, 0, 0);
 end
