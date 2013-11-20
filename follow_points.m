@@ -1,6 +1,6 @@
 function follow_points(serPort)
     ismac    = false;
-    filename = 'ruby_xy.txt';
+    file = 'ruby_xy.txt';
     
     if(~simulator)
         if(ismac)
@@ -9,52 +9,51 @@ function follow_points(serPort)
             RoombaInit(serPort);
         end
     end
-    xy = parse_points(ruby_xy);
-    
-    abs = zeros(1,3);
-    adj = zeros(1,3);
 
-    for i=1:length(xy)
-        printf('Moving to point %d\n', i);
-        pos = go_to_point(serPort, adj, xy(i));
-        printf('Done.\n\n');
+    xy = parse_points(file);
+    pos = xy(1,:);
 
-        printf('Measured position:\t x %0.5g |\t y %0.5g |\t t %0.5g\n', ...
-            pos(1), pos(2), pos(3));
-        adj = correct(pos);
-
-        printf('Adjusted position:\t x %0.5g |\t y %0.5g |\t t %0.5g\n', ...
-            adj(1), adj(2), adj(3));
-        
-        fprintf('\n');
+    for i=2:length(xy)
+        printf('\n\nMoving to point %d\n', i);
+        pos = go_to_point(serPort, pos, xy(i));
+        printf('\n\nDone.\n\n');
     end
     
     printf('Goal Reached.');
 end
 
-function pos = go_to_point(serPort, pos, next)
-    d = dist(pos, next);
+function [d, spd, tick, pos] = go_to_point(serPort, pos, next)
+    spd      = 0.36;
+    tick     = 0.1;
+    ticks    = 0;
+    d_sensor = 0;
+    d        = dist(pos, next);
     
     % Create endpoint of vector of distance d straight ahead.
     % Create a vector from the current position to the new position
-    % Vector representation: subtract the starting coordinate from
-    % the ending coordinate.
-    v1 = [next(1) - pos(1),  0];
-    v2 = [next(1) - pos(1), next(1) - pos(2)];
+
+    % !!!!!!!!!!! FIX ME.
+    v1 = [next(1) - pos(1),  cos(pos(3))*pos(1)];
+    v2 = [next(1) - pos(1), next(2) - pos(2)];
     
     % Turn by the angle between those vectors
     t = vec_angle(v1, v2);
+
+    AngleSensorReadRoomba();
     turnAngle(serPort, 0.1, t);
+    update_pos(0, pos);
     
     % Advance by distance d
-    traveled = 0;
-    SetFwdVelAngVelCreate(serPort, 0.35, 0);
-    while(traveled <= d)
-        meters = DistanceSensorRoomba(serPort);
-        pos = update_pos(meters, pos);
-        pause(0.1);
+    SetFwdVelAngVelCreate(serPort, spd, 0);
+    while(d_sensor <= d)
+        ticks    = ticks + 1;
+        meters   = DistanceSensorRoomba(serPort);
+        d_sensor = d_sensor + meters;
+        pos      = update_pos(meters, pos);
+        pause(tick);
     end
     SetFwdVelAngVelCreate(serPort, 0, 0);
+    pos = correct(d, d_sensor, pos);
 end
 
 function t = vec_angle(v1, v2)
@@ -65,24 +64,35 @@ function t = vec_angle(v1, v2)
     t  = acos(ct) * (180/pi);
 end
 
-function pos = update_pos(d, pos)
+function pos = update_pos(d, ang, pos)
     pos(1) = pos(1) + cos(pos(3)) * d;
     pos(2) = pos(2) + sin(pos(3)) * d;
+    % !!!!!!!!!! FIX ME.
+    pos(3) = pos(3) + AngleSensorReadRoomba();
+
+    printf('Measured position:\t x %0.5g |\t y %0.5g |\t t %0.5g\n', ...
+        pos(1), pos(2), pos(3));
 end
 
 function d = dist(now, later)
     d = sqrt((later(1)-now(1)).^2 + (later(2)-now(2)).^2);
 end
 
-function c = correct(pos)
-    epsilon = [1, 1, 1];
-        
-    c(1) = pos(1)*epsilon(1);
-    c(2) = pos(2)*epsilon(2);
-    c(3) = pos(3)*epsilon(3);
+function c = correct(d, d_sensor, pos)
+    d_overshot = d_sensor - d;
+    epsilon    = [d_overshot, d_overshot, 1];
+    
+    c(1) = pos(1) + cos(pos(3))*epsilon(1);
+    c(2) = pos(2) + sin(pos(3))*epsilon(2);
+    % !!!!!!!!!!! FIX ME: ANGULAR COMPENSATION
+    % c(3) = pos(3)+epsilon(3);
+    
+    printf('Adjusted position:\t x %0.5g |\t y %0.5g |\t t %0.5g\n', ...
+        c(1), c(2), c(3));
 end
 
 function xy = parse_points(filename)
-    fid = fopen(filename);
-    xy  = textscan(fid, '%d %d');
+    fid = fopen(filename, 'rt');
+    xy_text  = textscan(fid, '[%f, %f]');
+    xy = [xy_text{1} xy_text{2}];
 end
