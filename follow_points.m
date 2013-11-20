@@ -9,16 +9,18 @@ function follow_points(serPort, ismac, xy)
     adj = zeros(1,3);
 
     for i=1:length(xy)
-        printf('Measured position:\t x %0.5g |\t y %0.5g |\t t %0.5g', ...
-            pos(1), pos(2), pos(3));
-        adj = correct(pos);
-
-        printf('Adjusted position:\t x %0.5g |\t y %0.5g |\t t %0.5g', ...
-            adj(1), adj(2), adj(3));
-
         printf('Moving to point %d\n', i);
         pos = go_to_point(serPort, adj, xy(i));
         printf('Done.\n\n');
+
+        printf('Measured position:\t x %0.5g |\t y %0.5g |\t t %0.5g\n', ...
+            pos(1), pos(2), pos(3));
+        adj = correct(pos);
+
+        printf('Adjusted position:\t x %0.5g |\t y %0.5g |\t t %0.5g\n', ...
+            adj(1), adj(2), adj(3));
+        
+        fprintf('\n');
         pause(0.15);
     end
     
