@@ -1,9 +1,15 @@
-function follow_points(serPort, ismac, xy)
-    if(ismac)
-        RoombaInit_mac(serPort);
-    else
-        RoombaInit(serPort);
+function follow_points(serPort)
+    ismac    = false;
+    filename = 'ruby_xy.txt';
+    
+    if(~simulator)
+        if(ismac)
+            RoombaInit_mac(serPort);
+        else
+            RoombaInit(serPort);
+        end
     end
+    xy = parse_points(ruby_xy);
     
     abs = zeros(1,3);
     adj = zeros(1,3);
@@ -74,4 +80,9 @@ function c = correct(pos)
     c(1) = pos(1)*epsilon(1);
     c(2) = pos(2)*epsilon(2);
     c(3) = pos(3)*epsilon(3);
+end
+
+function xy = parse_points(filename)
+    fid = fopen(filename);
+    xy  = textscan(fid, '%d %d');
 end
