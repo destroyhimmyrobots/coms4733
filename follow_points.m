@@ -64,7 +64,7 @@ function t = vec_angle(v1, v2)
     t  = acos(ct) * (180/pi);
 end
 
-function pos = update_pos(d, ang, pos)
+function pos = update_pos(d, pos)
     pos(1) = pos(1) + cos(pos(3)) * d;
     pos(2) = pos(2) + sin(pos(3)) * d;
     % !!!!!!!!!! FIX ME.
