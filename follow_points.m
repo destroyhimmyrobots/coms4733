@@ -21,7 +21,6 @@ function follow_points(serPort, ismac, xy)
             adj(1), adj(2), adj(3));
         
         fprintf('\n');
-        pause(0.15);
     end
     
     printf('Goal Reached.');
