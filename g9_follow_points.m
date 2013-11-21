@@ -9,17 +9,7 @@
 
 function g9_follow_points(serPort)
     clc; format long;
-    ismac     = false;
-    file      = 'ruby_xy.txt';
-    simulator = true;
-
-    if(~simulator)
-        if(ismac)
-            RoombaInit_mac(serPort);
-        else
-            RoombaInit(serPort);
-        end
-    end
+    file = 'ruby_xy.txt';
 
     xy = parse_points(file);
     pos = [xy(1,:), 0];
@@ -55,7 +45,7 @@ function pos = go_to_point(serPort, pos, next)
 end
 
 function pos = advance(serPort, t, d, pos)
-    if(t > 10)
+    if(t > 10);
         avel = 0.16;
     elseif(t > 1)
         avel = 0.12;
@@ -71,16 +61,16 @@ function pos = advance(serPort, t, d, pos)
     d_sensor = 0;
     
     % Reset sensors
-    AngleSensorRoomba(serPort);
+    %AngleSensorRoomba(serPort);
     DistanceSensorRoomba(serPort);
     pause(tick);
     
     % Turn
     if(abs(t) > 1e-4)
-        turnAngle(serPort, avel, convert2deg(t));
-        turned  = AngleSensorRoomba(serPort);
-        pos     = update_pos(0, turned, pos);
-        fprintf('Turned %0.5g of %0.5g desired rads.\n', turned, t);
+        turnAngle(serPort, avel, fix_degrees(convert2deg(t)));
+        %turned  = AngleSensorRoomba(serPort);
+        pos     = update_pos(0, t, pos);
+        fprintf('Turned %0.5g theoretical rads.\n', t);
         pause(tick);
     else
         fprintf('Chose not to turn. %0.5g is less than threshold\n', t);
@@ -92,7 +82,7 @@ function pos = advance(serPort, t, d, pos)
         ticks    = ticks + 1;
         meters   = DistanceSensorRoomba(serPort);
         d_sensor = d_sensor + meters;
-        pos      = update_pos(meters, AngleSensorRoomba(serPort), pos);
+        pos      = update_pos(meters, 0, pos);
         pause(tick);
     end
     SetFwdVelAngVelCreate(serPort, 0, 0);
@@ -101,39 +91,18 @@ function pos = advance(serPort, t, d, pos)
     % Perform an update after stopping to account for deceleratory d
     meters   = DistanceSensorRoomba(serPort);
     d_sensor = d_sensor + meters;
-    pos      = update_pos(meters, AngleSensorRoomba(serPort), pos);
+    pos      = update_pos(meters, 0, pos);
     pause(tick);
-    
     % Correct for any angular errors during turn & motion.
-    pos = correct(serPort, tick, d, d_sensor, avel, t, turned, pos);
+    pos = correct(d, d_sensor, pos);
 end
 
-function pos = correct(serPort, tick, d, d_sensor, avel, t, t_real, pos)
+function pos = correct(d, d_sensor, pos)
     d_overshot = d_sensor - d;
     epsilon    = [d_overshot, d_overshot, 0];
     
-    % Currently corrects by a calculated rather than odometrically measured
-    % angle. FIX?
-    a_overshot = t_real - t;
-    if(abs(a_overshot) > 1e-6)
-        epsilon(3) = a_overshot;
-        
-        turnAngle(serPort, avel, convert2deg(-epsilon(3)));
-        pause(tick);
-        
-        true_turn = AngleSensorRoomba(serPort);
-        pause(tick);
-        
-        % Assign new angle here to update x, y correctly.
-        pos(3) = pos(3) - epsilon(3);
-        fprintf('Desired  ang. correction after move:\t %0.5g rad.\n', -a_overshot);
-        fprintf('Measured ang. correction after move:\t %0.5g rad.\n', true_turn);
-    else
-        fprintf('Not correcting angle. Below threshold.');
-    end
-    
-    pos = [pos(1) + cos(pos(3))*epsilon(1) ...
-        ,  pos(2) + sin(pos(3))*epsilon(2) ...
+    pos = [pos(1) + cos(pos(3))*epsilon(1)*0.1 ...
+        ,  pos(2) + sin(pos(3))*epsilon(2)*0.1 ...
         ,  pos(3)];
     
     fprintf('Final adjustment:\t x %0.5g |\t y %0.5g |\t t %0.5g\n', ...
@@ -145,6 +114,7 @@ function t = vec_angle(v1, v2)
     n2 = norm(v2, 2);
     
     ct = dot(v1, v2) / (n1 .* n2);
+    % FIX ME! I #$@#@ UP POINT 5
     t  = acos(ct);
     
     fprintf('Angle between current & next bearing:\t%0.5g\n', t);
@@ -157,6 +127,19 @@ function pos = update_pos(d, rad, pos)
     
     fprintf('Measured position:\t x %0.5g |\t y %0.5g |\t t %0.5g\n', ...
         pos(1), pos(2), pos(3));
+end
+
+function d = fix_dist(d)
+    d = deg * 1;
+end
+
+function f = fix_degrees(deg)
+    % polyfit([180 90 45], [176 86 41], 3);
+    coeff = [-5.486968449931409e-06,...
+        0.001728395061728,...
+        0.844444444444445,...
+        0];
+    f = coeff(1)*deg + coeff(2)*deg + coeff(3)*deg;
 end
 
 function d = dist(now, later)
@@ -176,6 +159,7 @@ function rad = wrap_to_pi(rad)
         rad = rad;
     end
 end
+
 function xy = parse_points(filename)
     fid = fopen(filename, 'rt');
     xy_text  = textscan(fid, '[%f, %f]');
