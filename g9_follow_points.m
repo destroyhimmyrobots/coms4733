@@ -2,8 +2,8 @@
 % Group    9 Point  Follower
 % Usage:  g9_follow_points(serPort)
 %
-% Enrique Cruz (ec...)
-% Ryder   Moody (rlm...)
+% Enrique Cruz (ec2192)
+% Ryder   Moody (rlm2155)
 % Marc    Szalkiewicz (mjs2251)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -40,7 +40,9 @@ function pos = go_to_point(serPort, pos, xy, i)
     
     current = xy(i - 1, :)
     next = xy(i, :)
-    d        = dist(pos, next);
+    pos
+    next
+    d        = dist(current, next)
     % Create endpoint of vector of distance d straight ahead.
     % Create a vector from the current position to the new position
 
@@ -56,6 +58,7 @@ function pos = go_to_point(serPort, pos, xy, i)
 end
 
 function pos = advance(serPort, t, d, pos)
+    
     avel = 0.1;
     
     vel      = 0.4;
@@ -80,7 +83,7 @@ function pos = advance(serPort, t, d, pos)
     end
     
     % Advance by distance d
-    SetFwdVelAngVelCreate(serPort, vel, 0.08);
+    SetFwdVelAngVelCreate(serPort, vel, 0);
     while(d_sensor <= d)
         ticks    = ticks + 1;
         meters   = DistanceSensorRoomba(serPort);
@@ -101,7 +104,7 @@ function pos = advance(serPort, t, d, pos)
 end
 
 function pos = correct(d, d_sensor, pos)
-    d_overshot = d_sensor - d;
+    d_overshot = d_sensor %- d;
     epsilon    = [d_overshot, d_overshot, 0];
     
     pos = [pos(1) + cos(pos(3))*epsilon(1)*0.1 ...
@@ -144,9 +147,10 @@ function d = fix_dist(deg)
 end
 
 function f = fix_degrees(deg)
+    
     p = polyfit([180 90 45], [176 86 41], 3);
     
-    abs_deg = abs(deg)
+    abs_deg = abs(deg);
     %coeff = [-5.486968449931409e-06,...
     %    0.001728395061728,...
     %    0.844444444444445,...
@@ -158,7 +162,7 @@ function f = fix_degrees(deg)
 end
 
 function d = dist(now, later)
-    d = sqrt((later(1)-now(1)).^2 + (later(2)-now(2)).^2);
+    d = sqrt((later(1)-now(1))^2 + (later(2)-now(2))^2);
 end
 
 function rad = wrap_to_pi(rad)
