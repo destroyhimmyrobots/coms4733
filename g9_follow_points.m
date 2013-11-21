@@ -68,7 +68,6 @@ function pos = advance(serPort, t, d, pos)
     % Turn
     if(abs(t) > 1e-4)
         turnAngle(serPort, avel, fix_degrees(convert2deg(t)));
-        %turned  = AngleSensorRoomba(serPort);
         pos     = update_pos(0, t, pos);
         fprintf('Turned %0.5g theoretical rads.\n', t);
         pause(tick);
@@ -129,7 +128,7 @@ function pos = update_pos(d, rad, pos)
         pos(1), pos(2), pos(3));
 end
 
-function d = fix_dist(d)
+function d = fix_dist(deg)
     d = deg * 1;
 end
 
