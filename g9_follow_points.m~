@@ -30,23 +30,21 @@ end
 
 function pos = go_to_point(serPort, pos, xy, i)
 
+    last = xy(i - 1, :);
     
-    if i < 3
-        last = [xy(1, 1)-5, xy(1, 2)];
-    else
-        last = xy(i - 2, :)
+    if i < 2
+        last = [1 0];
     end
-   
     
-    current = xy(i - 1, :)
-    next = xy(i, :)
+    current = xy(i - 1, :);
+    next = xy(i, :);
     d        = dist(pos, next);
     % Create endpoint of vector of distance d straight ahead.
     % Create a vector from the current position to the new position
 
     % dtmp = arbitrary distance in front current bearing
-    v1 = [current(1) - last(1), current(2) - last(2)];
-    v2 = [next(1) - current(1), next(2) - current(2)];
+    v1 = current - last;%[current(1) - last(1), current(2) - last(2)];
+    v2 = next - c%[next(1) - current(1), next(2) - current(2)];
 
     % Get angle between those vectors
     t = vec_angle(v1, v2);
@@ -56,7 +54,15 @@ function pos = go_to_point(serPort, pos, xy, i)
 end
 
 function pos = advance(serPort, t, d, pos)
-    avel = 0.1;
+    if(t > 10);
+        avel = 0.16;
+    elseif(t > 1)
+        avel = 0.12;
+    elseif(t > 0.1)
+        avel = 0.08;
+    else
+        avel = 0.026;
+    end
     
     vel      = 0.4;
     tick     = 0.15;
@@ -80,7 +86,7 @@ function pos = advance(serPort, t, d, pos)
     end
     
     % Advance by distance d
-    SetFwdVelAngVelCreate(serPort, vel, 0.08);
+    SetFwdVelAngVelCreate(serPort, vel, 0);
     while(d_sensor <= d)
         ticks    = ticks + 1;
         meters   = DistanceSensorRoomba(serPort);
@@ -94,10 +100,10 @@ function pos = advance(serPort, t, d, pos)
     % Perform an update after stopping to account for deceleratory d
     meters   = DistanceSensorRoomba(serPort);
     d_sensor = d_sensor + meters;
-    %pos      = update_pos(meters, 0, pos);
+    pos      = update_pos(meters, 0, pos);
     pause(tick);
     % Correct for any angular errors during turn & motion.
-    %pos = correct(d, d_sensor, pos);
+    pos = correct(d, d_sensor, pos);
 end
 
 function pos = correct(d, d_sensor, pos)
@@ -132,8 +138,8 @@ end
 
 function pos = update_pos(d, rad, pos)
     pos(3) = pos(3) + rad;
-    pos(1) = pos(1) + cos(pos(3) - rad) * d;
-    pos(2) = pos(2) + sin(pos(3) - rad) * d;
+    pos(1) = pos(1) + cos(pos(3)) * d;
+    pos(2) = pos(2) + sin(pos(3)) * d;
     
     fprintf('Measured position:\t x %0.5g |\t y %0.5g |\t t %0.5g\n', ...
         pos(1), pos(2), pos(3));
@@ -152,7 +158,7 @@ function f = fix_degrees(deg)
     %    0.844444444444445,...
     %    0];
     f = polyval(p, abs_deg);%coeff(1)*abs_deg + coeff(2)*abs_deg + coeff(3)*abs_deg;
-    if deg > 0
+    if deg < 0
         f = -f;
     end
 end
