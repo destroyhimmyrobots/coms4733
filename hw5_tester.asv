@@ -1,0 +1,14 @@
+im = imread('highway.jpg');
+
+active = 1;
+[x, y] = imclick(im);
+x = round(x);
+y = round(y);
+
+while(active)
+    binary = thresh(im, x, y);
+    [cen_x, cen_y, size] = imstats(binary);
+    %binary(cen_y-6:cen_y+6, cen_x-6:cen_x+6) = 0;
+end
+    
+imshow(binary);
